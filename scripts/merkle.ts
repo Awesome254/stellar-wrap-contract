@@ -2,13 +2,13 @@
  * Merkle tree helper for Stellar Wrap batch claims.
  *
  * Leaf encoding (must match on-chain `compute_merkle_leaf`):
- *   SHA-256( XDR(user) || XDR(period) || XDR(archetype) || XDR(data_hash) )
+ *   SHA-256( 0x00 || XDR(user) || XDR(period) || XDR(archetype) || XDR(data_hash) )
  *
  * Internal nodes:
- *   SHA-256( min(left,right) || max(left,right) )  — lexicographic byte order
+ *   SHA-256( 0x01 || min(left,right) || max(left,right) )  — lexicographic byte order
  *
  * Usage:
- *   npm install @stellar/stellar-sdk @noble/hashes
+ *   npm install @stellar-stellar-sdk @noble/hashes
  *   npx ts-node scripts/merkle.ts
  */
 
@@ -18,7 +18,11 @@ import {
   xdr,
   scValToNative,
   nativeToScVal,
-} from "@stellar/stellar-sdk";
+} from "@stellar-stellar-sdk";
+
+const LEAF_PREFIX = Buffer.from([0x00]);
+const NODE_PREFIX = Buffer.from([0x01]);
+export const MAX_PROOF_DEPTH = 32;
 
 export type ClaimLeaf = {
   user: string;
@@ -44,12 +48,12 @@ export function encodeMerkleLeaf(leaf: ClaimLeaf, networkPassphrase: string): Bu
     toXdrBytes(nativeToScVal(leaf.archetype, { type: "symbol" })),
     toXdrBytes(nativeToScVal(leaf.dataHash, { type: "bytes" })),
   ];
-  return sha256(Buffer.concat(parts));
+  return sha256(Buffer.concat([LEAF_PREFIX, ...parts]));
 }
 
 function hashPair(a: Buffer, b: Buffer): Buffer {
   const [left, right] = Buffer.compare(a, b) <= 0 ? [a, b] : [b, a];
-  return sha256(Buffer.concat([left, right]));
+  return sha256(Buffer.concat([NODE_PREFIX, left, right]));
 }
 
 /** Build a binary merkle root from pre-encoded 32-byte leaves. */
@@ -91,6 +95,7 @@ export function buildMerkleProof(leaves: Buffer[], index: number): Buffer[] {
     idx = Math.floor(idx / 2);
     layer = next;
   }
+  if (proof.length > MAX_PROOF_DEPTH) throw new Error("proof too long");
   return proof;
 }
 
@@ -108,13 +113,13 @@ export function buildClaimTree(
 if (require.main === module) {
   const demo: ClaimLeaf[] = [
     {
-      user: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+      user: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
       period: 202512n,
       archetype: "builder",
       dataHash: Buffer.alloc(32, 1),
     },
   ];
-  const { root, proofs } = buildClaimTree(demo, "Test SDF Network ; September 2015");
+  const { root, proofs } = buildClaimTree(demo, "Test Sdf Network ; September 2015");
   console.log("root:", root.toString("hex"));
   console.log("proof depth:", proofs[0].length);
 }
