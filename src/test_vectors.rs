@@ -146,3 +146,58 @@ fn gen_print_mint_fixtures() {
     std::println!("contract={:?}", contract_id);
     std::println!("user={:?}", user);
 }
+
+#[test]
+fn test_merkle_leaf_node_domain_separation() {
+    let env = Env::default();
+
+    // Leaf payloads are arbitrary; the domain prefix is what separates them
+    // from internal node hashes.
+    let leaf0 = [0x00u8; 1];
+    let leaf1 = [0x01u8; 1];
+    let leaf2 = [0x02u8; 1];
+    let leaf3 = [0x03u8; 1];
+
+    let h0 = crate::merkle::hash_leaf(&env, &leaf0);
+    let h1 = crate::merkle::hash_leaf(&env, &leaf1);
+    let h2 = crate::merkle::hash_leaf(&env, &leaf2);
+    let h3 = crate::merkle::hash_leaf(&env, &leaf3);
+
+    // Internal node hashes must not collide with leaf hashes.
+    assert_ne!(h0, crate::merkle::hash_pair(&env, &h0, &h1));
+
+    let h01 = crate::merkle::hash_pair(&env, &h0, &h1);
+    let h23 = crate::merkle::hash_pair(&env, &h2, &h3);
+    let root = crate::merkle::hash_pair(&env, &h01, &h23);
+
+    let proof = vec![h1, h23];
+    assert!(
+        crate::merkle::verify_merkle_proof(&env, &root, &leaf0, &proof).is_ok(),
+        "proof for leaf0 should verify against root"
+    );
+}
+
+#[test]
+fn test_merkle_empty_proof_single_leaf() {
+    let env = Env::default();
+    let leaf = [0x42u8; 1];
+    let root = crate::merkle::hash_leaf(&env, &leaf);
+    assert!(
+        crate::merkle::verify_merkle_proof(&env, &root, &leaf, &Vec::new()).is_ok(),
+        "empty proof should be valid for a single-leaf tree"
+    );
+}
+
+#[test]
+fn test_merkle_proof_length_limit() {
+    let env = Env::default();
+    let leaf = [0x00u8; 1];
+    let root = crate::merkle::hash_leaf(&env, &leaf);
+    let proof: Vec<_> = (0..=crate::merkle::MAX_PROOF_DEPTH)
+        .map(|i| crate::merkle::hash_leaf(&env, &[i as u8]))
+        .collect();
+    assert!(
+        crate::merkle::verify_merkle_proof(&env, &root, &leaf, &proof).is_err(),
+        "proofs longer than MAX_PROOF_DEPTH must be rejected"
+    );
+}
