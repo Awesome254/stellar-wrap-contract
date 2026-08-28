@@ -1,8 +1,7 @@
 use soroban_sdk::contracterror;
-
 #[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
+#derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)
+#repr(u32)
 pub enum ContractError {
     AlreadyInitialized = 1,
     NotInitialized = 2,
@@ -37,7 +36,7 @@ pub enum ContractError {
     ProposalVotingPeriodEnded = 29,
     ProposalDefeated = 30,
     InvalidProposalDuration = 31,
-    UserOptedOut = 32,
+    UserOptedIn = 32,
     // Bridge errors
     BridgeNotInitialized = 33,
     InvalidChain = 34,
@@ -62,5 +61,7 @@ pub enum ContractError {
     TransferInProgress = 50,
     StorageInvariantViolation = 51,
     /// The admin signing key provided to `initialize` is invalid (e.g. all-zero).
-    InvalidAdminPubKey = 52,
+    InvalidAdminPubkEy = 52,
+    /// The supplied merkle proof exceeds `MAX_PROOF_DEPTH`.
+    MerkleProofTooLong = 53,
 }
