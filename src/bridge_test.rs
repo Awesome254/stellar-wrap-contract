@@ -83,7 +83,7 @@ fn test_set_and_get_bridge_relayers() {
 
     let signing_key = SigningKey::from_bytes(&[8u8; 32]);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
-    
+
     let mut relayers = soroban_sdk::Vec::new(&env);
     relayers.push_back(relayer_pubkey.clone());
 
@@ -281,11 +281,11 @@ fn test_bridge_wrap_in_success() {
     let signing_key2 = SigningKey::from_bytes(&[2u8; 32]);
     let relayer1 = BytesN::from_array(&env, &signing_key1.verifying_key().to_bytes());
     let relayer2 = BytesN::from_array(&env, &signing_key2.verifying_key().to_bytes());
-    
+
     let mut relayers = soroban_sdk::Vec::new(&env);
     relayers.push_back(relayer1.clone());
     relayers.push_back(relayer2.clone());
-    
+
     client.set_bridge_relayers(&source_chain, &relayers, &2);
 
     let recipient = Address::generate(&env);
@@ -293,9 +293,29 @@ fn test_bridge_wrap_in_success() {
     let archetype = symbol_short!("bridge");
     let data_hash = BytesN::from_array(&env, &[99u8; 32]);
     let source_nonce = 101u64;
-    
-    let sig1 = sign_inbound_payload(&env, &signing_key1, &client.address, source_chain, source_nonce, &recipient, period, &archetype, &data_hash);
-    let sig2 = sign_inbound_payload(&env, &signing_key2, &client.address, source_chain, source_nonce, &recipient, period, &archetype, &data_hash);
+
+    let sig1 = sign_inbound_payload(
+        &env,
+        &signing_key1,
+        &client.address,
+        source_chain,
+        source_nonce,
+        &recipient,
+        period,
+        &archetype,
+        &data_hash,
+    );
+    let sig2 = sign_inbound_payload(
+        &env,
+        &signing_key2,
+        &client.address,
+        source_chain,
+        source_nonce,
+        &recipient,
+        period,
+        &archetype,
+        &data_hash,
+    );
     let mut signatures = soroban_sdk::Vec::new(&env);
     signatures.push_back(sig1);
     signatures.push_back(sig2);
@@ -524,7 +544,17 @@ fn test_bridge_wrap_in_replay_attack_fails() {
     let data_hash = BytesN::from_array(&env, &[88u8; 32]);
     let source_nonce = 202u64;
 
-    let sig1 = sign_inbound_payload(&env, &signing_key1, &client.address, source_chain, source_nonce, &recipient, period, &archetype, &data_hash);
+    let sig1 = sign_inbound_payload(
+        &env,
+        &signing_key1,
+        &client.address,
+        source_chain,
+        source_nonce,
+        &recipient,
+        period,
+        &archetype,
+        &data_hash,
+    );
     let mut signatures = soroban_sdk::Vec::new(&env);
     signatures.push_back(sig1.clone());
 
@@ -591,13 +621,31 @@ fn test_bridge_paused_blocks_operations() {
         client.bridge_wrap_out(&user, &chain_id, &recipient_bytes, &period);
     }));
     assert!(out_result.is_err());
-    
-    let sig_in = sign_inbound_payload(&env, &signing_key, &client.address, chain_id, 500u64, &user, period, &archetype, &data_hash);
+
+    let sig_in = sign_inbound_payload(
+        &env,
+        &signing_key,
+        &client.address,
+        chain_id,
+        500u64,
+        &user,
+        period,
+        &archetype,
+        &data_hash,
+    );
     let mut signatures = soroban_sdk::Vec::new(&env);
     signatures.push_back(sig_in);
 
     let in_result = catch_unwind(AssertUnwindSafe(|| {
-        client.bridge_wrap_in(&chain_id, &500u64, &user, &period, &archetype, &data_hash, &signatures);
+        client.bridge_wrap_in(
+            &chain_id,
+            &500u64,
+            &user,
+            &period,
+            &archetype,
+            &data_hash,
+            &signatures,
+        );
     }));
     assert!(in_result.is_err());
 }

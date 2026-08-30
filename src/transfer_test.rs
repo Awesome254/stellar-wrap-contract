@@ -179,7 +179,10 @@ fn transfer_keeps_every_query_consistent_for_both_parties() {
         "recipient must now list the transferred period"
     );
 
-    assert_eq!(client.get_latest_wrap(&fixture.from).unwrap().period, 202401);
+    assert_eq!(
+        client.get_latest_wrap(&fixture.from).unwrap().period,
+        202401
+    );
     assert_eq!(client.get_latest_wrap(&fixture.to).unwrap().period, 202405);
 
     assert_eq!(client.get_last_updated(&fixture.from), Some(2_000_000));

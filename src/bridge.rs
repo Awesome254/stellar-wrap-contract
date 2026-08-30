@@ -1,9 +1,10 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, Bytes, BytesN, Env, Symbol};
 
-use crate::storage_types::{
-    BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord, WrapState,
-};
 use crate::signature::verify_inbound_bridge_signature;
+use crate::storage_types::{
+    BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord,
+    WrapState,
+};
 use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
@@ -20,9 +21,7 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
         relayers,
         threshold,
     };
-    e.storage()
-        .instance()
-        .set(&key, &relayer_set);
+    e.storage().instance().set(&key, &relayer_set);
     e.storage()
         .instance()
         .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
@@ -30,7 +29,9 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
 
 /// Returns the configured bridge relayer set for a given chain, or None if not set.
 pub(crate) fn get_bridge_relayers(e: &Env, chain_id: u32) -> Option<BridgeRelayerSet> {
-    e.storage().instance().get(&DataKey::BridgeRelayerSet(chain_id))
+    e.storage()
+        .instance()
+        .get(&DataKey::BridgeRelayerSet(chain_id))
 }
 
 /// Enable or disable a cross-chain network chain ID. Requires admin authorization.
@@ -221,8 +222,10 @@ pub(crate) fn bridge_wrap_in(
                 period,
                 &archetype,
                 &data_hash,
-                &sig
-            ).is_ok() {
+                &sig,
+            )
+            .is_ok()
+            {
                 used_relayers.push_back(relayer);
                 matched = true;
                 break;

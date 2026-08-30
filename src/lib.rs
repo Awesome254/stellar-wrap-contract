@@ -562,7 +562,12 @@ impl StellarWrapContract {
     }
 
     /// Admin: Set the cross-chain token bridge relayers for a given chain.
-    pub fn set_bridge_relayers(e: Env, chain_id: u32, relayers: soroban_sdk::Vec<BytesN<32>>, threshold: u32) {
+    pub fn set_bridge_relayers(
+        e: Env,
+        chain_id: u32,
+        relayers: soroban_sdk::Vec<BytesN<32>>,
+        threshold: u32,
+    ) {
         bridge::set_bridge_relayers(&e, chain_id, relayers, threshold);
     }
 
@@ -802,6 +807,8 @@ mod oracle_test;
 #[cfg(test)]
 mod prop_test;
 #[cfg(test)]
+mod queries_test;
+#[cfg(test)]
 mod security_test;
 #[cfg(test)]
 mod stake_test;
@@ -813,5 +820,3 @@ mod test_utils;
 mod test_vectors;
 #[cfg(test)]
 mod transfer_test;
-#[cfg(test)]
-mod queries_test;

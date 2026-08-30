@@ -200,8 +200,22 @@ fn test_revoke_non_latest_wrap_preserves_latest() {
         &newer_hash,
     );
 
-    client.mint_wrap(&user, &older_period, &archetype, &older_hash, &1u32, &older_sig);
-    client.mint_wrap(&user, &newer_period, &archetype, &newer_hash, &1u32, &newer_sig);
+    client.mint_wrap(
+        &user,
+        &older_period,
+        &archetype,
+        &older_hash,
+        &1u32,
+        &older_sig,
+    );
+    client.mint_wrap(
+        &user,
+        &newer_period,
+        &archetype,
+        &newer_hash,
+        &1u32,
+        &newer_sig,
+    );
 
     let reason = BytesN::from_array(&env, &[0u8; 32]);
     client.revoke_wrap(&user, &older_period, &reason);
@@ -1758,8 +1772,24 @@ fn test_burn_then_transfer_remaining_wrap_succeeds() {
     let hash1 = BytesN::from_array(&env, &[41u8; 32]);
     let hash2 = BytesN::from_array(&env, &[42u8; 32]);
 
-    let sig1 = sign_payload(&env, &signing_key, &contract_id, &user, period1, &archetype, &hash1);
-    let sig2 = sign_payload(&env, &signing_key, &contract_id, &user, period2, &archetype, &hash2);
+    let sig1 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period1,
+        &archetype,
+        &hash1,
+    );
+    let sig2 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period2,
+        &archetype,
+        &hash2,
+    );
 
     client.mint_wrap(&user, &period1, &archetype, &hash1, &1u32, &sig1);
     client.mint_wrap(&user, &period2, &archetype, &hash2, &1u32, &sig2);
@@ -1811,7 +1841,15 @@ fn test_wrap_count_equals_wrap_periods_len_after_mint_burn_transfer() {
     // Mint all four
     for i in 0..4 {
         let hash = BytesN::from_array(&env, &hashes[i]);
-        let sig = sign_payload(&env, &signing_key, &contract_id, &user, periods[i], &archetype, &hash);
+        let sig = sign_payload(
+            &env,
+            &signing_key,
+            &contract_id,
+            &user,
+            periods[i],
+            &archetype,
+            &hash,
+        );
         client.mint_wrap(&user, &periods[i], &archetype, &hash, &1u32, &sig);
     }
     assert_eq!(client.balance_of(&user), 4);

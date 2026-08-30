@@ -9,7 +9,7 @@ use ed25519_dalek::SigningKey;
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Events},
-    Address, BytesN, Env, IntoVal, Symbol, TryIntoVal, vec,
+    vec, Address, BytesN, Env, IntoVal, Symbol, TryIntoVal,
 };
 
 #[test]
@@ -26,7 +26,7 @@ fn test_mint_wrap_batch_happy_path() {
     env.mock_all_auths();
 
     let initial_total = client.total_wrap_count();
-    
+
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
     let user3 = Address::generate(&env);
@@ -36,9 +36,33 @@ fn test_mint_wrap_batch_happy_path() {
     let data_hash = BytesN::from_array(&env, &[42u8; 32]);
     let payload_version = 1u32;
 
-    let sig1 = sign_payload(&env, &signing_key, &contract_id, &user1, period, &archetype, &data_hash);
-    let sig2 = sign_payload(&env, &signing_key, &contract_id, &user2, period, &archetype, &data_hash);
-    let sig3 = sign_payload(&env, &signing_key, &contract_id, &user3, period, &archetype, &data_hash);
+    let sig1 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user1,
+        period,
+        &archetype,
+        &data_hash,
+    );
+    let sig2 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user2,
+        period,
+        &archetype,
+        &data_hash,
+    );
+    let sig3 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user3,
+        period,
+        &archetype,
+        &data_hash,
+    );
 
     let item1 = BatchWrapItem {
         user: user1.clone(),
@@ -66,12 +90,12 @@ fn test_mint_wrap_batch_happy_path() {
     };
 
     let items = vec![&env, item1, item2, item3];
-    
+
     client.mint_wrap_batch(&items, &None);
 
     // Acceptance criteria 1: A batch of 3 items for 3 distinct users succeeds.
     // (If it didn't succeed, it would have panicked above).
-    
+
     // Acceptance criteria 3: total_wrap_count() increases by exactly the batch size.
     assert_eq!(client.total_wrap_count(), initial_total + 3);
 
@@ -83,7 +107,7 @@ fn test_mint_wrap_batch_happy_path() {
         assert_eq!(client.balance_of(user), 1);
         let latest = client.get_latest_wrap(user).expect("latest wrap missing");
         assert_eq!(latest.period, period);
-        
+
         // Acceptance criteria 4: LastUpdated is set for every user in the batch.
         assert!(client.get_last_updated(user).is_some());
     }

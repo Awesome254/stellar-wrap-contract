@@ -86,28 +86,28 @@ pub(crate) fn operation_id(e: &Env, action: &TimelockAction) -> BytesN<32> {
         TimelockAction::SetAdmin(addr) => {
             data.append(&Bytes::from_array(e, &[1u8]));
             data.append(&addr.clone().to_xdr(e));
-        }
+        },
         TimelockAction::SetAdminPubKey(key) => {
             data.append(&Bytes::from_array(e, &[2u8]));
             data.append(&key.clone().to_xdr(e));
-        }
+        },
         TimelockAction::Upgrade(hash) => {
             data.append(&Bytes::from_array(e, &[3u8]));
             data.append(&hash.clone().to_xdr(e));
-        }
+        },
         TimelockAction::SetWhitelistRoot(root) => {
             data.append(&Bytes::from_array(e, &[4u8]));
             data.append(&root.clone().to_xdr(e));
-        }
+        },
         TimelockAction::SetTimelockDelay(seconds) => {
             data.append(&Bytes::from_array(e, &[5u8]));
             data.append(&(*seconds).to_xdr(e));
-        }
+        },
         TimelockAction::SetBridgeRelayers(chain_id, relayers) => {
             data.append(&Bytes::from_array(e, &[6u8]));
             data.append(&chain_id.clone().to_xdr(e));
             data.append(&relayers.clone().to_xdr(e));
-        }
+        },
     }
     let hash = e.crypto().sha256(&data);
     BytesN::from_array(e, &hash.to_array())
@@ -243,27 +243,27 @@ pub(crate) fn execute(e: Env, id: BytesN<32>) {
                 (symbol_short!("admin"), symbol_short!("updated")),
                 (admin, new_admin),
             );
-        }
+        },
         TimelockAction::SetAdminPubKey(key) => {
             e.storage().instance().set(&DataKey::AdminPubKey, &key);
-        }
+        },
         TimelockAction::SetWhitelistRoot(root) => {
             e.storage().instance().set(&DataKey::WhitelistRoot, &root);
-        }
+        },
         TimelockAction::SetTimelockDelay(seconds) => {
             validate_delay(&e, seconds);
             e.storage()
                 .instance()
                 .set(&DataKey::TimelockDelay, &seconds);
-        }
+        },
         TimelockAction::Upgrade(wasm_hash) => {
             e.events()
                 .publish((symbol_short!("upgrade"),), wasm_hash.clone());
             e.deployer().update_current_contract_wasm(wasm_hash);
-        }
+        },
         TimelockAction::SetBridgeRelayers(chain_id, relayers) => {
             crate::bridge::set_bridge_relayers(&e, chain_id, relayers.relayers, relayers.threshold);
-        }
+        },
     }
 
     e.events()
