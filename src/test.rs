@@ -3,7 +3,7 @@
 extern crate std;
 
 use super::*;
-use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned};
+use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned, sign_batch_payload};
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{
     symbol_short,
@@ -2716,4 +2716,136 @@ fn test_update_latest_period_option_storage_accounting() {
     let unchanged_period: Option<u64> =
         env.as_contract(&contract_id, || env.storage().persistent().get(&latest_key));
     assert_eq!(unchanged_period, Some(10));
+}
+
+#[test]
+fn test_mint_wrap_batch_rejects_duplicate_user_period() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[99u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let archetype = symbol_short!("arch");
+    let period = 202401u64;
+    let data_hash1 = BytesN::from_array(&env, &[42u8; 32]);
+    let data_hash2 = BytesN::from_array(&env, &[43u8; 32]);
+
+    // Create batch with two items having the same (user, period) pair
+    let item1 = crate::storage_types::BatchWrapItem {
+        user: user.clone(),
+        period,
+        archetype: archetype.clone(),
+        data_hash: data_hash1.clone(),
+        payload_version: CURRENT_PAYLOAD_VERSION,
+        signature: BytesN::from_array(&env, &[0u8; 64]),
+    };
+    let item2 = crate::storage_types::BatchWrapItem {
+        user: user.clone(),
+        period, // Same period as item1
+        archetype: archetype.clone(),
+        data_hash: data_hash2.clone(),
+        payload_version: CURRENT_PAYLOAD_VERSION,
+        signature: BytesN::from_array(&env, &[0u8; 64]),
+    };
+
+    let mut items = soroban_sdk::Vec::new(&env);
+    items.push_back(item1);
+    items.push_back(item2);
+
+    let agg_sig = sign_batch_payload(&env, &signing_key, &contract_id, &items);
+
+    // Calling mint_wrap_batch with duplicate (user, period) must fail
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.mint_wrap_batch(&items, &Some(agg_sig));
+    }));
+
+    // Verify the batch call failed
+    assert!(result.is_err(), "batch with duplicate (user, period) must fail");
+    let err_str = result
+        .as_ref()
+        .expect_err("batch must have failed")
+        .downcast_ref::<std::string::String>()
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        err_str.contains("Error(Contract, #17)"),
+        "duplicate batch entry must surface DuplicateBatchEntry (#17), got: {err_str}"
+    );
+
+    // Acceptance criterion: no wrap exists for any item in the batch after the failure
+    assert!(
+        client.get_wrap(&user, &period).is_none(),
+        "no wrap must exist after rejected batch"
+    );
+    assert_eq!(
+        client.balance_of(&user),
+        0,
+        "user balance must remain 0 after rejected batch"
+    );
+}
+
+#[test]
+fn test_mint_wrap_batch_allows_same_user_different_periods() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[100u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let archetype = symbol_short!("arch");
+    let period1 = 202401u64;
+    let period2 = 202402u64;
+    let data_hash1 = BytesN::from_array(&env, &[44u8; 32]);
+    let data_hash2 = BytesN::from_array(&env, &[45u8; 32]);
+
+    // Create batch with same user but different periods
+    let item1 = crate::storage_types::BatchWrapItem {
+        user: user.clone(),
+        period: period1,
+        archetype: archetype.clone(),
+        data_hash: data_hash1.clone(),
+        payload_version: CURRENT_PAYLOAD_VERSION,
+        signature: BytesN::from_array(&env, &[0u8; 64]),
+    };
+    let item2 = crate::storage_types::BatchWrapItem {
+        user: user.clone(),
+        period: period2, // Different period
+        archetype: archetype.clone(),
+        data_hash: data_hash2.clone(),
+        payload_version: CURRENT_PAYLOAD_VERSION,
+        signature: BytesN::from_array(&env, &[0u8; 64]),
+    };
+
+    let mut items = soroban_sdk::Vec::new(&env);
+    items.push_back(item1);
+    items.push_back(item2);
+
+    let agg_sig = sign_batch_payload(&env, &signing_key, &contract_id, &items);
+
+    // This should succeed
+    client.mint_wrap_batch(&items, &Some(agg_sig));
+
+    // Both wraps should exist
+    assert!(
+        client.get_wrap(&user, &period1).is_some(),
+        "wrap for period1 must exist"
+    );
+    assert!(
+        client.get_wrap(&user, &period2).is_some(),
+        "wrap for period2 must exist"
+    );
+    assert_eq!(client.balance_of(&user), 2, "user balance must be 2");
 }
