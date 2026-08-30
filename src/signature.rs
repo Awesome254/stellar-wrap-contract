@@ -58,10 +58,10 @@ pub fn construct_mint_payload(
 /// The host `ed25519_verify` primitive cannot produce the contract error: on a
 /// bad signature it traps the VM with an uncatchable `Error(Crypto,
 /// InvalidInput)` host error (soroban-sdk `Crypto::ed25519_verify` discards the
-/// result, so the guest never regains control). Verifying here with the same
-/// pinned `ed25519-dalek` version (3.0.0, `verify_strict`) that
-/// `soroban-env-host` uses reproduces identical acceptance semantics while
-/// keeping the failure inside the contract's error domain.
+/// result, so the guest never regains control). Verifying here reproduces
+/// acceptance semantics inside the contract's error domain at the cost of
+/// ~45.5 KB bytecode overhead. See `SIGNATURE_VERIFICATION_DECISION.md` for full
+/// measurement and architectural trade-off details.
 fn verify_ed25519(
     public_key: &BytesN<32>,
     message: &Bytes,

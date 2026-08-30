@@ -122,6 +122,7 @@ pub(crate) fn bridge_wrap_out(
 
 /// Restore a bridged wrap when the destination chain rejects the transfer.
 /// Only the configured bridge relayer may call this operation.
+#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
 
@@ -153,7 +154,11 @@ pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
         .extend_ttl(&wrap_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
     e.events().publish(
-        (symbol_short!("br_refund"), request.sender.clone(), request.period),
+        (
+            symbol_short!("br_refund"),
+            request.sender.clone(),
+            request.period,
+        ),
         outbound_nonce,
     );
 }
