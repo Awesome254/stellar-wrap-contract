@@ -9,8 +9,10 @@
 
 use soroban_sdk::{panic_with_error, symbol_short, xdr::ToXdr, Bytes, BytesN, Env, Vec};
 
-use crate::storage_types::{TimelockAction, TimelockOperation};
-use crate::{ContractError, DataKey};
+use crate::{
+    storage_types::{TimelockAction, TimelockOperation},
+    ContractError, DataKey,
+};
 
 /// Smallest delay the timelock accepts (1 hour). A shorter window would not
 /// give observers a realistic chance to react.

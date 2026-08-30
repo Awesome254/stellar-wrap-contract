@@ -2,11 +2,13 @@
 
 extern crate std;
 
-use super::*;
-use crate::signature::{construct_inbound_bridge_payload, construct_mint_payload};
+use std::panic::{catch_unwind, AssertUnwindSafe};
+
 use ed25519_dalek::{Signer, SigningKey};
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, Bytes, BytesN, Env, Symbol};
-use std::panic::{catch_unwind, AssertUnwindSafe};
+
+use super::*;
+use crate::signature::{construct_inbound_bridge_payload, construct_mint_payload};
 
 fn setup_test_env<'a>(
     env: &'a Env,

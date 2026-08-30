@@ -2,12 +2,13 @@
 
 extern crate std;
 
-use super::*;
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Ledger},
     Address, BytesN, Env, TryIntoVal,
 };
+
+use super::*;
 
 // ── Stake tests ─────────────────────────────────────────────────────────────
 

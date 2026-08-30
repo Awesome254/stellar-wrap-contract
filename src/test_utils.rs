@@ -2,9 +2,11 @@
 #![allow(dead_code)]
 
 use ed25519_dalek::{Signer, SigningKey};
-use soroban_sdk::testutils::Events;
-use soroban_sdk::xdr::{ContractEventBody, ScVal};
-use soroban_sdk::{Address, BytesN, Env, Symbol, TryIntoVal, Val};
+use soroban_sdk::{
+    testutils::Events,
+    xdr::{ContractEventBody, ScVal},
+    Address, BytesN, Env, Symbol, TryIntoVal, Val,
+};
 
 use crate::signature::construct_mint_payload;
 

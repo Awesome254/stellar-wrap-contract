@@ -1,8 +1,9 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, Env};
 
-use crate::admin::read_admin;
-use crate::storage_types::TimelockAction;
-use crate::{AdminProposal, ContractError, DataKey, ProposalStatus};
+use crate::{
+    admin::read_admin, storage_types::TimelockAction, AdminProposal, ContractError, DataKey,
+    ProposalStatus,
+};
 
 /// Create a new proposal to update the contract admin.
 /// Returns the generated proposal ID.

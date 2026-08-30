@@ -1,9 +1,12 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env, Symbol};
 
-use crate::events::{MintEventData, MintEventType};
-use crate::storage_accounting;
-use crate::storage_types::{WrapLifecycleFSM, WrapState};
-use crate::{signature::verify_mint_signature, ContractError, DataKey, WrapRecord};
+use crate::{
+    admin::read_admin,
+    signature::verify_mint_signature,
+    storage_accounting,
+    storage_types::{WrapLifecycleFSM, WrapState},
+    ContractError, DataKey, WrapRecord,
+};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 /// TTL for temporary storage entries (~1 day in ledgers at 5s/ledger).
@@ -216,10 +219,7 @@ pub(crate) fn mint_wrap(
 
     update_last_updated(&e, &user);
 
-    e.events().publish(
-        (MintEventType::Mint.to_symbol(&e), user.clone(), period),
-        MintEventData::Mint(user, period, archetype),
-    );
+    crate::events::publish_event(&e, crate::events::Event::Mint(user, period, archetype));
 }
 
 pub const MAX_BATCH_SIZE: u32 = 100;
@@ -402,13 +402,9 @@ pub(crate) fn transition_wrap_state(e: Env, user: Address, period: u64, next_sta
         .persistent()
         .extend_ttl(&wrap_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
-    e.events().publish(
-        (
-            MintEventType::Transition.to_symbol(&e),
-            user.clone(),
-            period,
-        ),
-        MintEventData::Transition(user, period, next_state),
+    crate::events::publish_event(
+        &e,
+        crate::events::Event::MintTransition(user, period, next_state),
     );
 }
 

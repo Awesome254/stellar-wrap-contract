@@ -1,7 +1,6 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env};
 
-use crate::mint::TTL_TEMP;
-use crate::{ContractError, DataKey, TransferFeeConfig};
+use crate::{mint::TTL_TEMP, ContractError, DataKey, TransferFeeConfig};
 
 /// Reads the stored admin or panics with `NotInitialized`.
 pub(crate) fn read_admin(e: &Env) -> Address {
@@ -35,7 +34,7 @@ pub(crate) fn initialize(e: Env, admin: Address, admin_pubkey: BytesN<32>) {
     e.storage()
         .instance()
         .set(&DataKey::AdminPubKey, &admin_pubkey);
-    crate::events::publish_event(&e, crate::events::Event::AdminInit { admin });
+    crate::events::publish_event(&e, crate::events::Event::AdminInit(admin));
 }
 
 /// Immediate admin replacement.
@@ -64,7 +63,7 @@ pub(crate) fn update_admin(e: Env, new_admin: Address) {
 pub(crate) fn set_pause(e: Env, paused: bool) {
     read_admin(&e).require_auth();
     e.storage().instance().set(&DataKey::Paused, &paused);
-    crate::events::publish_event(&e, crate::events::Event::AdminPause { paused });
+    crate::events::publish_event(&e, crate::events::Event::AdminPause(paused));
 }
 
 /// Admin-only: configure the token-denominated fee charged by `transfer_wrap`.

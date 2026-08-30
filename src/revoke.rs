@@ -1,7 +1,6 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env};
 
-use crate::storage_accounting;
-use crate::{ContractError, DataKey};
+use crate::{storage_accounting, ContractError, DataKey};
 
 /// Revokes an existing wrap record for the given user and period.
 ///

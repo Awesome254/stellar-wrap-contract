@@ -1,9 +1,9 @@
 #![cfg(test)]
 
-use crate::test_utils::sign_payload;
-use crate::{StellarWrapContract, StellarWrapContractClient};
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env};
+
+use crate::{test_utils::sign_payload, StellarWrapContract, StellarWrapContractClient};
 
 #[test]
 fn test_has_wrap_agrees_with_get_wrap() {
@@ -65,7 +65,7 @@ fn test_version_format() {
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Get the version returned by the contract
-    let version_str: alloc::string::String = client.version().into();
+    let version_str: std::string::String = client.version().into();
 
     // Check if it matches major.minor.patch
     let parts: std::vec::Vec<&str> = version_str.split('.').collect();

@@ -1,16 +1,24 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, Bytes, BytesN, Env, Symbol};
 
-use crate::signature::verify_inbound_bridge_signature;
-use crate::storage_types::{
-    BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord,
-    WrapState,
+use crate::{
+    signature::verify_inbound_bridge_signature,
+    storage_accounting,
+    storage_types::{
+        BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord,
+        WrapState,
+    },
+    ContractError, DataKey,
 };
-use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
-/// Set the bridge relayer address. Requires admin authorization.
-pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+/// Set the bridge relayers for a given chain. Requires admin authorization.
+pub(crate) fn set_bridge_relayers(
+    e: &Env,
+    chain_id: u32,
+    relayers: soroban_sdk::Vec<soroban_sdk::BytesN<32>>,
+    threshold: u32,
+) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
     if threshold == 0 || threshold > relayers.len() as u32 {
@@ -360,13 +368,9 @@ pub(crate) fn bridge_wrap_in(
         }
         e.storage().persistent().set(&wrap_key, &existing_record);
 
-        e.events().publish(
-            (
-                crate::events::MintEventType::Transition.to_symbol(&e),
-                recipient.clone(),
-                period,
-            ),
-            crate::events::MintEventData::Transition(recipient.clone(), period, WrapState::Active),
+        crate::events::publish_event(
+            &e,
+            crate::events::Event::MintTransition(recipient.clone(), period, WrapState::Active),
         );
     }
 

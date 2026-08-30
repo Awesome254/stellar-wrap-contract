@@ -5,14 +5,15 @@
 //! fails safely when attacked. We test replay attacks, identity theft,
 //! cross-contract replay protection, and resource consumption.
 
-use super::*;
-use crate::signature::construct_mint_payload;
 use ed25519_dalek::{Signer, SigningKey};
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal, Symbol,
 };
+
+use super::*;
+use crate::signature::construct_mint_payload;
 
 /// Test 1: Replay Attack Simulation
 /// Ensures that a valid signature cannot be reused for the same period

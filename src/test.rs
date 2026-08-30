@@ -2,15 +2,17 @@
 
 extern crate std;
 
-use super::*;
-use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned};
+use std::vec::Vec;
+
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{
     symbol_short,
     testutils::{budget::ContractCostType, Address as _, Events, Ledger},
     Address, Bytes, BytesN, Env, IntoVal, String, Symbol, TryIntoVal,
 };
-use std::vec::Vec;
+
+use super::*;
+use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned};
 
 const STRESS_USER_COUNT: usize = 128;
 
@@ -2050,8 +2052,9 @@ fn test_get_all_wraps_for_user_independent_per_user() {
 /// Tests the core requirement: verify_data must return true for correct data payloads
 /// that match the hash stored during minting.
 mod verify_data_unit_tests {
-    use super::*;
     use std::vec;
+
+    use super::*;
 
     /// Helper function to set up a standard test environment
     /// Returns: (Env, contract_id, client, signing_key, admin, user)
@@ -2702,8 +2705,10 @@ fn test_storage_md_documents_every_datakey_variant() {
 
 #[test]
 fn test_update_latest_period_option_storage_accounting() {
-    use crate::mint::update_latest_period;
-    use crate::storage_accounting::{estimate_latest_bytes_new, get_storage_bytes};
+    use crate::{
+        mint::update_latest_period,
+        storage_accounting::{estimate_latest_bytes_new, get_storage_bytes},
+    };
 
     let env = Env::default();
     let contract_id = env.register(StellarWrapContract, ());

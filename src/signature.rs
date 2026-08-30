@@ -222,13 +222,13 @@ pub fn verify_inbound_bridge_signature(
 mod tests {
     extern crate std;
 
-    use super::*;
-    use ed25519_dalek::{Signer, SigningKey};
-    use soroban_sdk::{symbol_short, testutils::Address as _, Address, Bytes, BytesN, Env, Symbol};
     use std::panic::{catch_unwind, AssertUnwindSafe};
 
-    use crate::StellarWrapContract;
-    use crate::StellarWrapContractClient;
+    use ed25519_dalek::{Signer, SigningKey};
+    use soroban_sdk::{symbol_short, testutils::Address as _, Address, Bytes, BytesN, Env, Symbol};
+
+    use super::*;
+    use crate::{StellarWrapContract, StellarWrapContractClient};
 
     fn sign_payload(
         env: &Env,
