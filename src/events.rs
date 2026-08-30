@@ -10,18 +10,8 @@
 //!
 //! Replace inline `e.events().publish()` calls with typed enum values, reducing the risk of typos and improving discoverability.
 
-use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env, Symbol};
-
 use crate::storage_types::{StakeConfig, WrapState};
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TransferFeeEventData {
-    pub token: Address,
-    pub recipient: Address,
-    pub amount: i128,
-}
-
+use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env, Symbol};
 /// All events emitted by the contract.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -78,7 +68,8 @@ pub enum Event {
 
     // Transfer
     TransferBackfill(Address, u32),
-    Transfer(Address, Address, u64, Option<TransferFeeEventData>),
+    Transfer(Address, Address, u64),
+    TransferWithFee(Address, Address, u64, Address, Address, i128),
 }
 
 /// Strongly typed event publisher.
@@ -214,5 +205,8 @@ pub fn publish_event(e: &Env, event: Event) {
             (v1, symbol_short!("transfer"), symbol_short!("transfer")),
             event,
         ),
+        Event::TransferWithFee(..) => e
+            .events()
+            .publish((v1, symbol_short!("transfer"), symbol_short!("fee")), event),
     }
 }

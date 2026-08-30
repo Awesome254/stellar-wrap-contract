@@ -65,7 +65,7 @@ fn test_version_format() {
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Get the version returned by the contract
-    let version_str: std::string::String = client.version().to_string();
+    let version_str: std::string::String = client.version().to_alloc_string();
 
     // Check if it matches major.minor.patch
     let parts: std::vec::Vec<&str> = version_str.split('.').collect();
