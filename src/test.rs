@@ -2604,6 +2604,8 @@ fn test_get_wrap_nonexistent_user_returns_none() {
         0,
         "balance_of must be zero for a user that has never minted"
     );
+}
+
 #[test]
 fn test_storage_md_documents_every_datakey_variant() {
     let storage_md = include_str!("../STORAGE.md");
