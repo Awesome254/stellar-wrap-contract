@@ -790,6 +790,8 @@ impl token::TokenInterface for StellarWrapContract {
 #[cfg(test)]
 mod balance_of_test;
 #[cfg(test)]
+mod batch_test;
+#[cfg(test)]
 mod bridge_test;
 #[cfg(test)]
 mod expiration_test;
