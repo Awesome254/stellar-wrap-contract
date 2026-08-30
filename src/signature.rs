@@ -71,12 +71,10 @@ fn verify_ed25519(
         .map_err(|_| ContractError::InvalidSignature)?;
     let sig = Signature::from_bytes(&signature.to_array());
 
-    let mut msg = [0u8; 512];
-    let len = message.len() as usize;
-    message.copy_into_slice(&mut msg[..len]);
+    let msg = message.to_alloc_vec();
 
     verifying_key
-        .verify_strict(&msg[..len], &sig)
+        .verify_strict(&msg, &sig)
         .map_err(|_| ContractError::InvalidSignature)
 }
 
@@ -456,11 +454,9 @@ mod tests {
         let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
 
         let payload = construct_batch_mint_payload(&env, &contract_id, &items, 1);
-        let mut out = [0u8; 512];
-        let len = payload.len() as usize;
-        payload.copy_into_slice(&mut out[..len]);
+        let out = payload.to_alloc_vec();
 
-        let agg_sig_bytes = signing_key.sign(&out[..len]);
+        let agg_sig_bytes = signing_key.sign(&out);
         let agg_sig = BytesN::from_array(&env, &agg_sig_bytes.to_bytes());
 
         assert!(verify_batch_aggregated_signature(
@@ -470,6 +466,95 @@ mod tests {
             &items,
             1,
             &agg_sig,
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_verify_batch_large_payload() {
+        let env = Env::default();
+        let contract_id = env.register(StellarWrapContract, ());
+        
+        let mut items = soroban_sdk::Vec::new(&env);
+        let archetype = symbol_short!("arch");
+        let data_hash = BytesN::from_array(&env, &[1u8; 32]);
+        
+        let mut prev_len = 0;
+        let mut threshold_crossed = false;
+        
+        for i in 0..20 {
+            let item = crate::storage_types::BatchWrapItem {
+                user: Address::generate(&env),
+                period: 202601u64 + i as u64,
+                archetype: archetype.clone(),
+                data_hash: data_hash.clone(),
+                payload_version: 1,
+                signature: BytesN::from_array(&env, &[0u8; 64]),
+            };
+            items.push_back(item);
+            
+            let payload = construct_batch_mint_payload(&env, &contract_id, &items, 1);
+            let cur_len = payload.len();
+            assert!(cur_len > prev_len);
+            prev_len = cur_len;
+            
+            if cur_len > 512 {
+                threshold_crossed = true;
+                break;
+            }
+        }
+        
+        assert!(threshold_crossed, "payload never crossed 512 bytes");
+        
+        let signing_key = SigningKey::from_bytes(&[25u8; 32]);
+        let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+
+        let payload = construct_batch_mint_payload(&env, &contract_id, &items, 1);
+        let out = payload.to_alloc_vec();
+
+        let agg_sig_bytes = signing_key.sign(&out);
+        let agg_sig = BytesN::from_array(&env, &agg_sig_bytes.to_bytes());
+
+        assert!(verify_batch_aggregated_signature(
+            &env,
+            &admin_pubkey,
+            &contract_id,
+            &items,
+            1,
+            &agg_sig,
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_verify_single_mint_max_archetype() {
+        let env = Env::default();
+        let contract_id = env.register(StellarWrapContract, ());
+        let user = Address::generate(&env);
+        // Max length for soroban Symbol is 32 bytes
+        let archetype = Symbol::new(&env, "abcdefghijklmnopqrstuvwxyz123456");
+        let data_hash = BytesN::from_array(&env, &[2u8; 32]);
+        let period = 202603u64;
+        
+        let signing_key = SigningKey::from_bytes(&[26u8; 32]);
+        let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+        
+        let payload = construct_mint_payload(&env, &contract_id, &user, period, &archetype, &data_hash, 1);
+        let out = payload.to_alloc_vec();
+        
+        let sig_bytes = signing_key.sign(&out);
+        let sig = BytesN::from_array(&env, &sig_bytes.to_bytes());
+        
+        assert!(verify_mint_signature(
+            &env,
+            &admin_pubkey,
+            &contract_id,
+            &user,
+            period,
+            &archetype,
+            &data_hash,
+            1,
+            &sig,
         )
         .is_ok());
     }
