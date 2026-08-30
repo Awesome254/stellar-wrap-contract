@@ -166,7 +166,7 @@ fn test_revoke_emits_event_multi_user() {
 #[test]
 fn test_revoke_non_latest_wrap_preserves_latest() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[16u8; 32]);
@@ -1747,7 +1747,7 @@ fn test_burn_wrap_multiple_users_independent() {
 fn test_burn_then_transfer_remaining_wrap_succeeds() {
     // Acceptance criterion: mint two, burn one, transfer the other successfully.
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[41u8; 32]);
@@ -1816,7 +1816,7 @@ fn test_wrap_count_equals_wrap_periods_len_after_mint_burn_transfer() {
     // Acceptance criterion: WrapCount == WrapPeriods.len() holds after any
     // sequence of mint / burn / transfer.
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[42u8; 32]);
@@ -2615,7 +2615,7 @@ fn test_get_latest_wrap_multiple_wraps() {
 #[test]
 fn test_get_wrap_nonexistent_user_returns_none() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);

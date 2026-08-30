@@ -4,9 +4,7 @@ extern crate std;
 
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{
-    symbol_short,
-    testutils::{Address as _, Events},
-    vec, Address, BytesN, Env, IntoVal, Symbol, TryIntoVal,
+    symbol_short, testutils::Address as _, vec, Address, BytesN, Env, Symbol, TryIntoVal,
 };
 
 use super::*;
@@ -119,7 +117,7 @@ fn test_mint_wrap_batch_happy_path() {
     let events = decode_events(&env);
     let mint_events: std::vec::Vec<_> = events
         .iter()
-        .filter(|(topics, data)| {
+        .filter(|(topics, _data)| {
             if topics.is_empty() {
                 return false;
             }

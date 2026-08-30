@@ -1188,7 +1188,7 @@ fn test_new_admin_can_propose_further_transfers() {
 #[should_panic(expected = "Error(Contract, #5)")]
 fn test_tampered_data_hash_invalidates_admin_signature() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[1u8; 32]);

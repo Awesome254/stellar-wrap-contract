@@ -1,7 +1,6 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env, Symbol};
 
 use crate::{
-    admin::read_admin,
     signature::verify_mint_signature,
     storage_accounting,
     storage_types::{WrapLifecycleFSM, WrapState},

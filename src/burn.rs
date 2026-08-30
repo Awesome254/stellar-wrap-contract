@@ -51,7 +51,7 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
     // 4. Update WrapPeriods ownership index (used by transfer_wrap / read_periods).
     //    This MUST stay in sync with WrapCount or every subsequent transfer panics.
     let wrap_periods_key = DataKey::WrapPeriods(user.clone());
-    let mut wrap_periods: Vec<u64> = e
+    let wrap_periods: Vec<u64> = e
         .storage()
         .persistent()
         .get(&wrap_periods_key)
@@ -105,7 +105,7 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
 
     // 7. Also keep UserPeriods in sync (legacy index used by get_wraps / get_latest_wrap)
     let user_periods_key = DataKey::UserPeriods(user.clone());
-    let mut user_periods: Vec<u64> = e
+    let user_periods: Vec<u64> = e
         .storage()
         .persistent()
         .get(&user_periods_key)

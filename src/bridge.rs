@@ -143,16 +143,18 @@ pub(crate) fn bridge_wrap_out(
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
 
-    let relayer = get_bridge_relayer(&e)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
-    relayer.require_auth();
-
     let request_key = DataKey::OutboundBridgeRequest(outbound_nonce);
     let request: OutboundBridgeRequest = e
         .storage()
         .persistent()
         .get(&request_key)
         .unwrap_or_else(|| panic_with_error!(e, ContractError::InvalidBridgePayload));
+
+    let _relayer_set = get_bridge_relayers(&e, request.destination_chain)
+        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
+    // TODO: Verify signatures for refund. For now, we just require admin authorization as fallback.
+    let admin = crate::admin::read_admin(&e);
+    admin.require_auth();
     let wrap_key = DataKey::Wrap(request.sender.clone(), request.period);
     let mut wrap_record: WrapRecord = e
         .storage()

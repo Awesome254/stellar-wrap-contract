@@ -8,7 +8,7 @@ use crate::{test_utils::sign_payload, StellarWrapContract, StellarWrapContractCl
 #[test]
 fn test_has_wrap_agrees_with_get_wrap() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[1u8; 32]);
@@ -61,11 +61,11 @@ fn test_has_wrap_agrees_with_get_wrap() {
 #[test]
 fn test_version_format() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Get the version returned by the contract
-    let version_str: std::string::String = client.version().into();
+    let version_str: std::string::String = client.version().to_string();
 
     // Check if it matches major.minor.patch
     let parts: std::vec::Vec<&str> = version_str.split('.').collect();
@@ -95,7 +95,7 @@ fn test_version_format() {
 #[test]
 fn test_get_admin_pubkey() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Before initialization
@@ -116,7 +116,7 @@ fn test_get_admin_pubkey() {
 #[test]
 fn test_contract_version() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Before any upgrade
@@ -126,7 +126,7 @@ fn test_contract_version() {
 #[test]
 fn test_health() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Before initialize

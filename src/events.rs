@@ -14,6 +14,14 @@ use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env, Symbol};
 
 use crate::storage_types::{StakeConfig, WrapState};
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransferFeeEventData {
+    pub token: Address,
+    pub recipient: Address,
+    pub amount: i128,
+}
+
 /// All events emitted by the contract.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -70,10 +78,11 @@ pub enum Event {
 
     // Transfer
     TransferBackfill(Address, u32),
-    Transfer(Address, Address, u64, Option<(Address, Address, i128)>),
+    Transfer(Address, Address, u64, Option<TransferFeeEventData>),
 }
 
 /// Strongly typed event publisher.
+#[allow(deprecated)]
 pub fn publish_event(e: &Env, event: Event) {
     let v1 = symbol_short!("v1");
     match event.clone() {
