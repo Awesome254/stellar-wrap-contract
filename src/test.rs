@@ -2521,3 +2521,83 @@ fn test_update_latest_period_option_storage_accounting() {
 }
 
 
+
+// ----- TimelockOps cap tests -------------------------------------------------
+
+/// Scheduling exactly MAX_PENDING_OPERATIONS distinct operations succeeds; the
+/// very next schedule call must panic because the queue is full.
+///
+/// Each `SetTimelockDelay(MIN_DELAY + i)` produces a unique deterministic id,
+/// so none of them collide and all of them count toward the cap.
+#[test]
+#[should_panic(expected = "Error(Contract, #42)")]
+fn test_timelock_pending_cap_is_enforced() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[1u8; 32]);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
+    client.enable_timelock(&timelock::MIN_DELAY);
+
+    // Fill the queue to MAX_PENDING_OPERATIONS.
+    for i in 0..timelock::MAX_PENDING_OPERATIONS {
+        let delay = timelock::MIN_DELAY + u64::from(i);
+        client.timelock_schedule(&TimelockAction::SetTimelockDelay(delay));
+    }
+
+    // The queue is now at capacity; pending_operations must reflect the cap.
+    assert_eq!(
+        client.timelock_pending().len(),
+        timelock::MAX_PENDING_OPERATIONS
+    );
+
+    // One more schedule must panic with TimelockOperationExists (#42).
+    client.timelock_schedule(&TimelockAction::SetTimelockDelay(
+        timelock::MIN_DELAY + u64::from(timelock::MAX_PENDING_OPERATIONS),
+    ));
+}
+
+/// After the queue is full, cancelling one operation frees exactly one slot so
+/// that a fresh schedule succeeds.
+#[test]
+fn test_timelock_cancel_frees_slot_at_cap() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[1u8; 32]);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
+    client.enable_timelock(&timelock::MIN_DELAY);
+
+    // Fill to capacity.
+    for i in 0..timelock::MAX_PENDING_OPERATIONS {
+        let delay = timelock::MIN_DELAY + u64::from(i);
+        client.timelock_schedule(&TimelockAction::SetTimelockDelay(delay));
+    }
+    assert_eq!(
+        client.timelock_pending().len(),
+        timelock::MAX_PENDING_OPERATIONS
+    );
+
+    // Cancel the first operation to open a slot.
+    let first_id = client
+        .timelock_operation_id(&TimelockAction::SetTimelockDelay(timelock::MIN_DELAY));
+    client.timelock_cancel(&first_id);
+    assert_eq!(
+        client.timelock_pending().len(),
+        timelock::MAX_PENDING_OPERATIONS - 1
+    );
+
+    // A new schedule must now succeed.
+    let new_delay = timelock::MIN_DELAY + u64::from(timelock::MAX_PENDING_OPERATIONS);
+    client.timelock_schedule(&TimelockAction::SetTimelockDelay(new_delay));
+    assert_eq!(
+        client.timelock_pending().len(),
+        timelock::MAX_PENDING_OPERATIONS
+    );
+}

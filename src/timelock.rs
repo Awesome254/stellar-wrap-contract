@@ -23,6 +23,14 @@ pub const MAX_DELAY: u64 = 30 * 24 * 3_600;
 /// TTL used for wrap records elsewhere in the contract.
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
+/// Maximum number of operations that may be queued concurrently.
+///
+/// The `TimelockAction` enum has only 5 variants, and the deterministic id
+/// scheme already prevents duplicates, so a cap of 64 is far above any
+/// realistic need while ensuring instance storage stays bounded regardless of
+/// how many operations accumulate without being executed or cancelled.
+pub const MAX_PENDING_OPERATIONS: u32 = 64;
+
 /// Returns the configured delay in seconds, or `None` while the timelock is
 /// disabled.
 pub(crate) fn delay(e: &Env) -> Option<u64> {
@@ -109,10 +117,19 @@ pub(crate) fn operation_id(e: &Env, action: &TimelockAction) -> BytesN<32> {
 }
 
 fn read_op_ids(e: &Env) -> Vec<BytesN<32>> {
+    let key = DataKey::TimelockOps;
     e.storage()
-        .instance()
-        .get(&DataKey::TimelockOps)
+        .persistent()
+        .get(&key)
         .unwrap_or_else(|| Vec::new(e))
+}
+
+fn write_op_ids(e: &Env, ids: &Vec<BytesN<32>>) {
+    let key = DataKey::TimelockOps;
+    e.storage().persistent().set(&key, ids);
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 }
 
 fn remove_op(e: &Env, id: &BytesN<32>) {
@@ -127,9 +144,7 @@ fn remove_op(e: &Env, id: &BytesN<32>) {
             remaining.push_back(existing);
         }
     }
-    e.storage()
-        .instance()
-        .set(&DataKey::TimelockOps, &remaining);
+    write_op_ids(e, &remaining);
 }
 
 /// Admin-only: queue `action` for execution once the delay has elapsed.
@@ -172,8 +187,11 @@ pub(crate) fn schedule(e: Env, action: TimelockAction) -> BytesN<32> {
         .extend_ttl(&key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
     let mut ids = read_op_ids(&e);
+    if ids.len() >= MAX_PENDING_OPERATIONS {
+        panic_with_error!(e, ContractError::TimelockOperationExists);
+    }
     ids.push_back(id.clone());
-    e.storage().instance().set(&DataKey::TimelockOps, &ids);
+    write_op_ids(&e, &ids);
 
     e.events().publish(
         (symbol_short!("timelock"), symbol_short!("sched")),
