@@ -27,7 +27,13 @@ fn sign_mint(
     BytesN::from_array(env, &signature.to_bytes())
 }
 
-fn setup() -> (Env, StellarWrapContractClient<'static>, Address, Address, SigningKey) {
+fn setup() -> (
+    Env,
+    StellarWrapContractClient<'static>,
+    Address,
+    Address,
+    SigningKey,
+) {
     let env = Env::default();
     let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
@@ -64,10 +70,22 @@ fn first_mint_increments_storage_bytes_by_full_estimate() {
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let period = 202401u64;
 
-    let sig = sign_mint(&env, &signing_key, &env.current_contract_address(), &user, period, &archetype, &hash);
+    let sig = sign_mint(
+        &env,
+        &signing_key,
+        &env.current_contract_address(),
+        &user,
+        period,
+        &archetype,
+        &hash,
+    );
     client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &sig);
 
-    let expected = ESTIMATE_WRAP + ESTIMATE_WRAPCOUNT + ESTIMATE_LATEST + ESTIMATE_USERPERIODS + ESTIMATE_LASTUPDATED;
+    let expected = ESTIMATE_WRAP
+        + ESTIMATE_WRAPCOUNT
+        + ESTIMATE_LATEST
+        + ESTIMATE_USERPERIODS
+        + ESTIMATE_LASTUPDATED;
     assert_eq!(client.storage_bytes(), expected);
 }
 
@@ -194,17 +212,35 @@ fn burn_last_wrap_subtracts_all_accounted_entries() {
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let period = 202401u64;
-    let sig = sign_mint(&env, &signing_key, &env.current_contract_address(), &user, period, &archetype, &hash);
+    let sig = sign_mint(
+        &env,
+        &signing_key,
+        &env.current_contract_address(),
+        &user,
+        period,
+        &archetype,
+        &hash,
+    );
     client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &sig);
 
     let before = client.storage_bytes();
-    assert_eq!(before, ESTIMATE_WRAP + ESTIMATE_WRAPCOUNT + ESTIMATE_LATEST + ESTIMATE_USERPERIODS + ESTIMATE_LASTUPDATED);
+    assert_eq!(
+        before,
+        ESTIMATE_WRAP
+            + ESTIMATE_WRAPCOUNT
+            + ESTIMATE_LATEST
+            + ESTIMATE_USERPERIODS
+            + ESTIMATE_LASTUPDATED
+    );
 
     client.burn_wrap(&user, &period);
     let after = client.storage_bytes();
 
     // Last wrap burn must reclaim wrap + wrapcount + latest + userperiods
-    assert_eq!(before - after, ESTIMATE_WRAP + ESTIMATE_WRAPCOUNT + ESTIMATE_LATEST + ESTIMATE_USERPERIODS);
+    assert_eq!(
+        before - after,
+        ESTIMATE_WRAP + ESTIMATE_WRAPCOUNT + ESTIMATE_LATEST + ESTIMATE_USERPERIODS
+    );
     // lastupdated is NOT reclaimed by burn (retained for audit trail)
     assert_eq!(after, ESTIMATE_LASTUPDATED);
 }
@@ -216,7 +252,15 @@ fn revoke_last_wrap_subtracts_all_accounted_entries() {
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let period = 202401u64;
-    let sig = sign_mint(&env, &signing_key, &env.current_contract_address(), &user, period, &archetype, &hash);
+    let sig = sign_mint(
+        &env,
+        &signing_key,
+        &env.current_contract_address(),
+        &user,
+        period,
+        &archetype,
+        &hash,
+    );
     client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &sig);
 
     let before = client.storage_bytes();
@@ -225,7 +269,10 @@ fn revoke_last_wrap_subtracts_all_accounted_entries() {
     let after = client.storage_bytes();
 
     // Last wrap revoke must reclaim wrap + wrapcount + latest + userperiods
-    assert_eq!(before - after, ESTIMATE_WRAP + ESTIMATE_WRAPCOUNT + ESTIMATE_LATEST + ESTIMATE_USERPERIODS);
+    assert_eq!(
+        before - after,
+        ESTIMATE_WRAP + ESTIMATE_WRAPCOUNT + ESTIMATE_LATEST + ESTIMATE_USERPERIODS
+    );
     // lastupdated is NOT reclaimed by revoke (retained for audit trail)
     assert_eq!(after, ESTIMATE_LASTUPDATED);
 }
