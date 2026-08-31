@@ -3100,3 +3100,123 @@ fn test_revoke_keeps_index_invariant() {
     assert_eq!(wp, 0, "WrapPeriods key must be removed when empty");
     assert_eq!(up, 0, "UserPeriods key must be removed when empty");
 }
+
+#[test]
+fn test_set_wrap_metadata_sets_description_and_image_url() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[80u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let archetype = symbol_short!("arch");
+    let hash = BytesN::from_array(&env, &[42u8; 32]);
+    let period = 202401u64;
+    let sig = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period,
+        &archetype,
+        &hash,
+    );
+    client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &sig);
+
+    let storage_before =
+        env.as_contract(&contract_id, || crate::storage_accounting::get_storage_bytes(&env));
+    env.events().all();
+
+    let description = String::from_str(&env, "Gold Tier Achievement");
+    let image_url = String::from_str(&env, "https://example.com/gold.png");
+    client.set_wrap_metadata(&user, &period, &description, &image_url);
+
+    let storage_after =
+        env.as_contract(&contract_id, || crate::storage_accounting::get_storage_bytes(&env));
+    assert!(
+        storage_after > storage_before,
+        "metadata must add storage bytes"
+    );
+
+    let events = decode_events(&env);
+    assert_eq!(events.len(), 1, "set_wrap_metadata must emit an event");
+
+    let wrap = client.get_wrap(&user, &period).unwrap();
+    assert_eq!(wrap.description, Some(description));
+    assert_eq!(wrap.image_url, Some(image_url));
+}
+
+#[test]
+#[should_panic]
+fn test_set_wrap_metadata_requires_owner_auth() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[81u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let attacker = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let archetype = symbol_short!("arch");
+    let hash = BytesN::from_array(&env, &[43u8; 32]);
+    let period = 202401u64;
+    let sig = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &owner,
+        period,
+        &archetype,
+        &hash,
+    );
+    client.mint_wrap(&owner, &period, &archetype, &hash, &1u32, &sig);
+
+    let description = String::from_str(&env, "not yours");
+    let image_url = String::from_str(&env, "https://example.com/evil.png");
+    client.set_wrap_metadata(&attacker, &period, &description, &image_url);
+}
+
+#[test]
+#[should_panic]
+fn test_set_wrap_metadata_rejects_oversized_description() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[82u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let archetype = symbol_short!("arch");
+    let hash = BytesN::from_array(&env, &[44u8; 32]);
+    let period = 202401u64;
+    let sig = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period,
+        &archetype,
+        &hash,
+    );
+    client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &sig);
+
+    let long_description = String::from_str(&env, &"x".repeat(1025));
+    let image_url = String::from_str(&env, "https://example.com/image.png");
+    client.set_wrap_metadata(&user, &period, &long_description, &image_url);
+}
