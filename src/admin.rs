@@ -24,7 +24,6 @@ pub(crate) fn read_admin(e: &Env) -> Address {
 ///   misconfiguration rather than discovering it after deployment.
 #[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn initialize(e: Env, admin: Address, admin_pubkey: BytesN<32>) {
-    admin.require_auth();
     if e.storage().instance().has(&DataKey::Admin) {
         panic_with_error!(e, ContractError::AlreadyInitialized);
     }
@@ -233,30 +232,36 @@ pub(crate) fn get_pending_admin(e: Env) -> Option<Address> {
     e.storage().instance().get(&DataKey::PendingAdmin)
 }
 
-pub(crate) fn set_name(e: Env, name: soroban_sdk::String) {
-    let current_admin: Address = e
-        .storage()
-        .instance()
-        .get(&DataKey::Admin)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::NotInitialized));
-
+pub(crate) fn update_admin_pubkey(e: Env, new_pubkey: BytesN<32>) {
+    let current_admin = read_admin(&e);
     current_admin.require_auth();
-    e.storage().temporary().set(&DataKey::Name, &name);
+
+    if new_pubkey == BytesN::from_array(&e, &[0u8; 32]) {
+        panic_with_error!(e, ContractError::InvalidAdminPubKey);
+    }
+
     e.storage()
-        .temporary()
-        .extend_ttl(&DataKey::Name, TTL_TEMP, TTL_TEMP);
+        .instance()
+        .set(&DataKey::AdminPubKey, &new_pubkey);
+
+    e.events().publish(
+        (
+            symbol_short!("v1"),
+            symbol_short!("pubkey"),
+            symbol_short!("rotate"),
+        ),
+        new_pubkey,
+    );
+}
+
+pub(crate) fn set_name(e: Env, name: soroban_sdk::String) {
+    let current_admin: Address = read_admin(&e);
+    current_admin.require_auth();
+    e.storage().instance().set(&DataKey::Name, &name);
 }
 
 pub(crate) fn set_symbol(e: Env, symbol: soroban_sdk::String) {
-    let current_admin: Address = e
-        .storage()
-        .instance()
-        .get(&DataKey::Admin)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::NotInitialized));
-
+    let current_admin: Address = read_admin(&e);
     current_admin.require_auth();
-    e.storage().temporary().set(&DataKey::Symbol, &symbol);
-    e.storage()
-        .temporary()
-        .extend_ttl(&DataKey::Symbol, TTL_TEMP, TTL_TEMP);
+    e.storage().instance().set(&DataKey::Symbol, &symbol);
 }

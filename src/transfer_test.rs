@@ -531,7 +531,7 @@ fn clear_transfer_fee_emits_event_and_clears_configuration() {
 
     let events = crate::test_utils::decode_events(&fixture.env);
     let (topics, _data) = events.last().expect("fee_clr event was not emitted");
-    let event_name: Symbol = topics[0].try_into_val(&fixture.env).unwrap();
+    let event_name: Symbol = topics[2].try_into_val(&fixture.env).unwrap();
     assert_eq!(event_name, symbol_short!("fee_clr"));
 
     assert_eq!(client.get_transfer_fee(), None);

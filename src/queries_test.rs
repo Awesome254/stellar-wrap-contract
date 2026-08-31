@@ -56,7 +56,11 @@ fn test_version_format() {
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Get the version returned by the contract
-    let version_str: alloc::string::String = client.version().into();
+    let version = client.version();
+    let mut buf = [0u8; 32];
+    let len = version.len() as usize;
+    version.copy_into_slice(&mut buf[..len]);
+    let version_str = std::str::from_utf8(&buf[..len]).unwrap();
     
     // Check if it matches major.minor.patch
     let parts: std::vec::Vec<&str> = version_str.split('.').collect();
@@ -67,7 +71,7 @@ fn test_version_format() {
     assert!(parts[2].parse::<u32>().is_ok(), "Patch version must be an integer");
     
     // Make sure it matches the current crate version (if needed)
-    assert_eq!(version_str.as_str(), "0.1.0"); // from Cargo.toml / queries.rs
+    assert_eq!(version_str, "0.1.0"); // from Cargo.toml / queries.rs
 }
 
 #[test]

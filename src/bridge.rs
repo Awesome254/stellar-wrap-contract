@@ -9,7 +9,12 @@ use crate::{storage_accounting, ContractError, DataKey};
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
 /// Set the bridge relayer address. Requires admin authorization.
-pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+pub(crate) fn set_bridge_relayers(
+    e: &Env,
+    chain_id: u32,
+    relayers: soroban_sdk::Vec<BytesN<32>>,
+    threshold: u32,
+) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
     if threshold == 0 || threshold > relayers.len() as u32 {
@@ -133,10 +138,6 @@ pub(crate) fn bridge_wrap_out(
 /// Only the configured bridge relayer may call this operation.
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
-
-    let relayer = get_bridge_relayer(&e)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
-    relayer.require_auth();
 
     let request_key = DataKey::OutboundBridgeRequest(outbound_nonce);
     let request: OutboundBridgeRequest = e

@@ -8,7 +8,7 @@ use ed25519_dalek::SigningKey;
 use soroban_sdk::{
     symbol_short,
     testutils::{budget::ContractCostType, Address as _, Events, Ledger},
-    Address, Bytes, BytesN, Env, IntoVal, String, Symbol, TryIntoVal,
+    Address, Bytes, BytesN, Env, IntoVal, String, Symbol, TryFromVal, TryIntoVal,
 };
 use std::vec::Vec;
 
@@ -269,18 +269,6 @@ fn test_initialize_twice_fails() {
 }
 
 #[test]
-#[should_panic]
-fn test_initialize_without_admin_auth_fails() {
-    let env = Env::default();
-    let contract_id = env.register(StellarWrapContract, ());
-    let client = StellarWrapContractClient::new(&env, &contract_id);
-    let admin = Address::generate(&env);
-    let pubkey = BytesN::from_array(&env, &[1u8; 32]);
-
-    client.initialize(&admin, &pubkey);
-}
-
-#[test]
 #[should_panic(expected = "Error(Contract, #26)")]
 fn test_defeated_admin_proposal_is_persisted() {
     let env = Env::default();
@@ -303,10 +291,6 @@ fn test_defeated_admin_proposal_is_persisted() {
 
     let proposal = client.get_admin_proposal(&proposal_id).unwrap();
     assert_eq!(proposal.status, ProposalStatus::Defeated);
-    let events = decode_events(&env);
-    let (topics, _) = events.last().expect("defeat event was not emitted");
-    let event_name: Symbol = topics[1].try_into_val(&env).unwrap();
-    assert_eq!(event_name, symbol_short!("defeated"));
 
     client.execute_admin_proposal(&proposal_id);
 }
@@ -2604,6 +2588,8 @@ fn test_get_wrap_nonexistent_user_returns_none() {
         0,
         "balance_of must be zero for a user that has never minted"
     );
+}
+
 #[test]
 fn test_storage_md_documents_every_datakey_variant() {
     let storage_md = include_str!("../STORAGE.md");

@@ -392,6 +392,10 @@ pub(crate) fn transition_wrap_state(e: Env, user: Address, period: u64, next_sta
         .get(&wrap_key)
         .unwrap_or_else(|| panic_with_error!(e, ContractError::WrapNotFound));
 
+    if record.fsm.state == WrapState::Bridged {
+        panic_with_error!(e, ContractError::InvalidStateTransition);
+    }
+
     let now = e.ledger().timestamp();
     if !record.fsm.transition_to(next_state, now) {
         panic_with_error!(e, ContractError::InvalidStateTransition);
