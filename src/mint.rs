@@ -445,14 +445,14 @@ pub(crate) fn set_expiration_duration(e: &Env, duration: u64) {
         .set(&DataKey::ExpirationDuration, &duration);
 }
 
-/// Expires an unverified wrap if its expiration deadline has passed.
+/// Expires a wrap if its expiration deadline has passed.
 ///
 /// A wrap can be expired if:
-/// - It is in `Draft` or `Pending` state (unverified).
+/// - It is in `Draft`, `Pending`, or `Active` state.
 /// - The ledger timestamp exceeds `fsm.updated_at + expiration_duration`.
 ///
 /// Callable by anyone — the function enforces objective time-based criteria.
-/// Wraps already in `Active`, `Archived`, `Cancelled`, or `Expired` state
+/// Wraps already in `Archived`, `Cancelled`, or `Expired` state
 /// will cause the FSM transition to fail with [`ContractError::InvalidStateTransition`].
 ///
 /// Expired wraps remain in persistent storage; no storage bytes are reclaimed.
