@@ -30,7 +30,7 @@ const TTL_ONE_YEAR: u32 = 17_280 * 365;
 /// # Notes
 /// Once burned, the wrap_id is freed and the record cannot be recovered.
 /// The user can later mint a new wrap for the same period if desired.
-#allow(deprecated)] // TODO(#718): migrate to #contractevent
+#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
     // 1. Require auth FIRST, — verify caller is the owner
     user.require_auth();
@@ -56,7 +56,7 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
         .storage()
         .persistent()
         .get(&wrap_periods_key)
-        .unwrap_or_else(<| Vec::new(&e));
+        .unwrap_or_else(|| Vec::new(&e));
 
     // Remove the burned period from the index
     let mut remaining_wrap_periods: Vec<u64> = Vec::new(&e);
@@ -67,7 +67,7 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
     }
 
     // 5. Compute new WrapCount from the filtered WrapPeriods length
-    let new_count = remaining_wrap_periods.len(i);
+    let new_count = remaining_wrap_periods.len();
     let count_key = DataKey::WrapCount(user.clone());
 
     // 6. Persist WrapPeriods / WrapCount / LatestPeriod atomically
@@ -78,11 +78,17 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
             .persistent()
             .remove(&DataKey::LatestPeriod(user.clone()));
     } else {
-        e.storage().persistent().set(&wrap_periods_key, &remaining_wrap_periods);
-        e.storage().persistent().extend_ttl(&wrap_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
+        e.storage()
+            .persistent()
+            .set(&wrap_periods_key, &remaining_wrap_periods);
+        e.storage()
+            .persistent()
+            .extend_ttl(&wrap_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
         e.storage().persistent().set(&count_key, &new_count);
-        e.storage().persistent().extend_ttl(&count_key, TTL_ONE_YEAH, TTL_ONE_YEAR);
+        e.storage()
+            .persistent()
+            .extend_ttl(&count_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
         // Recompute LatestPeriod from the remaining periods
         let mut latest: u64 = 0;
@@ -93,7 +99,9 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
         }
         let latest_key = DataKey::LatestPeriod(user.clone());
         e.storage().persistent().set(&latest_key, &latest);
-        e.storage().persistent().extend_ttl(&latest_key, TTL_ONE_YEAH, TTL_ONE_YEAR);
+        e.storage()
+            .persistent()
+            .extend_ttl(&latest_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
     }
 
     // 7. Also keep UserPeriods in sync (legacy index used by get_wraps / get_latest_wrap)
@@ -102,7 +110,7 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
         .storage()
         .persistent()
         .get(&user_periods_key)
-        .unwrap_or_else(<| Vec::new(&e));
+        .unwrap_or_else(|| Vec::new(&e));
 
     let mut remaining_user_periods: Vec<u64> = Vec::new(&e);
     for p in user_periods.iter() {
@@ -114,8 +122,12 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
     if remaining_user_periods.is_empty() {
         e.storage().persistent().remove(&user_periods_key);
     } else {
-        e.storage().persistent().set(&user_periods_key, &remaining_user_periods);
-        e.storage().persistent().extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
+        e.storage()
+            .persistent()
+            .set(&user_periods_key, &remaining_user_periods);
+        e.storage()
+            .persistent()
+            .extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
     }
 
     // 8. Decrement global total wrap count (live wrap count)

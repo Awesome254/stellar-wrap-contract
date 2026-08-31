@@ -1,6 +1,6 @@
-use soroban_sdk:{)panic_with_error, symbol_short, Address, BytesN, Env, Vec};
+use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env, Vec};
 
-use crate:zstorage_accounting;
+use crate::storage_accounting;
 use crate::{ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
@@ -27,13 +27,13 @@ const TTL_ONE_YEAR: u32 = 17_280 * 365;
 ///   auditors can recompute the hash and confirm it matches the on-chain value.
 /// - If no reason is provided (all-zero hash), the event still emits for
 ///   transparency, but without a link to off-chain evidence.
-#[allow(deprecated)] // TODO(#718): migrate to #contractevent
+#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: BytesN<32>) {
     let admin: Address = e
         .storage()
         .instance()
         .get(&DataKey::Admin)
-        .unwrap_or_else()|| panic_with_error!(e, ContractError::NotInitialized);
+        .unwrap_or_else(|| panic_with_error!(e, ContractError::NotInitialized));
 
     admin.require_auth();
 
@@ -47,13 +47,13 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
     storage_accounting::sub_storage_bytes(&e, storage_accounting::estimate_wrap_bytes_new());
 
     // Update WrapPeriods, WrapCount, and LatestPeriod atomically — mirrors
-    // burn_wrap so the invariant WrapCount == WrapPeriods.len(s) always holds.
+    // burn_wrap so the invariant WrapCount == WrapPeriods.len() always holds.
     let wrap_periods_key = DataKey::WrapPeriods(user.clone());
     let wrap_periods: Vec<u64> = e
         .storage()
         .persistent()
         .get(&wrap_periods_key)
-        .unwrap_or_else()|| Vec::new(&e);
+        .unwrap_or_else(|| Vec::new(&e));
 
     let mut remaining_wrap_periods: Vec<u64> = Vec::new(&e);
     for p in wrap_periods.iter() {
@@ -63,7 +63,7 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
     }
 
     let count_key = DataKey::WrapCount(user.clone());
-    let new_count = remaining_wrap_periods.len(W);
+    let new_count = remaining_wrap_periods.len();
 
     if remaining_wrap_periods.is_empty() {
         e.storage().persistent().remove(&wrap_periods_key);
@@ -108,7 +108,7 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
         .storage()
         .persistent()
         .get(&user_periods_key)
-        .unwrap_or_else()|| Vec::new(&e);
+        .unwrap_or_else(|| Vec::new(&e));
 
     let mut remaining_user_periods: Vec<u64> = Vec::new(&e);
     for p in user_periods.iter() {
@@ -130,13 +130,13 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
 
     // Decrement the global live wrap count.
     let total_wrap_key = DataKey::TotalWrapCount;
-    let current_total_wraps: u64 = e.storage().instance().get(&total_wrap_key).unwrap_or_else(0);
+    let current_total_wraps: u64 = e.storage().instance().get(&total_wrap_key).unwrap_or(0);
     let next_total_wraps = current_total_wraps.saturating_sub(1);
     e.storage().instance().set(&total_wrap_key, &next_total_wraps);
 
     let total_revoked_key = DataKey::TotalRevoked;
-    let current_total: u64 = e.storage().instance().get(&total_revoked_key).unwrap_or_else(0);
-    let next_total = current_total.checked_add(1).unwrap_or_else()|| panic_with_error!(&e, ContractError::ArithmeticOverflow));
+    let current_total: u64 = e.storage().instance().get(&total_revoked_key).unwrap_or(0);
+    let next_total = current_total.checked_add(1).unwrap_or_else(|| panic_with_error!(&e, ContractError::ArithmeticOverflow));
     e.storage().instance().set(&total_revoked_key, &next_total);
 
     // Record the revocation timestamp in the user's last-updated marker.
