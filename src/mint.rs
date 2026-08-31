@@ -383,8 +383,8 @@ pub(crate) fn mint_wrap_batch(
         update_last_updated(&e, &item.user);
 
         e.events().publish(
-            (symbol_short!("mint"), item.user, item.period),
-            item.archetype,
+            (MintEventType::Mint.to_symbol(&e), item.user.clone(), item.period),
+            MintEventData::Mint(item.user, item.period, item.archetype),
         );
     }
 }
