@@ -88,7 +88,7 @@ pub(crate) fn decode_events(env: &Env) -> std::vec::Vec<(std::vec::Vec<Val>, Val
                     .collect();
                 let data: Val = body.data.try_into_val(env).unwrap();
                 (topics, data)
-            }
+            },
         })
         .collect()
 }

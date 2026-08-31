@@ -536,7 +536,11 @@ fn test_gas_analysis_mint_operation() {
         "CPU instructions are too high: {}",
         cpu_insns
     );
-    assert!(mem_bytes < 200_000, "Memory usage is too high: {}", mem_bytes);
+    assert!(
+        mem_bytes < 200_000,
+        "Memory usage is too high: {}",
+        mem_bytes
+    );
 
     // Gas analysis results:
     // CPU Instructions: Check assertion output
@@ -604,8 +608,16 @@ fn test_gas_analysis_multiple_mints() {
 
     // Gas analysis for 5 mints - results tracked in budget
     // Verify resource usage is within reasonable bounds for batch operations
-    assert!(cpu_insns < 50_000_000, "Batch CPU usage is too high: {}", cpu_insns);
-    assert!(mem_bytes < 500_000, "Batch memory usage is too high: {}", mem_bytes);
+    assert!(
+        cpu_insns < 50_000_000,
+        "Batch CPU usage is too high: {}",
+        cpu_insns
+    );
+    assert!(
+        mem_bytes < 500_000,
+        "Batch memory usage is too high: {}",
+        mem_bytes
+    );
 }
 
 /// Test 8: Timestamp Manipulation Resistance
@@ -656,7 +668,10 @@ fn test_timestamp_is_from_ledger_not_user() {
     let wrap = client.get_wrap(&user, &period).unwrap();
 
     // Verify timestamp matches ledger, not any user-provided value
-    assert_eq!(wrap.timestamp, 1000000, "Timestamp should come from the ledger.");
+    assert_eq!(
+        wrap.timestamp, 1000000,
+        "Timestamp should come from the ledger."
+    );
 
     // Advance ledger time and mint another period
     env.ledger().with_mut(|li| {
@@ -734,7 +749,10 @@ fn test_edge_case_long_symbols() {
     );
 
     let wrap = client.get_wrap(&user, &period);
-    assert!(wrap.is_some(), "Wrap should exist for reasonably long symbols.");
+    assert!(
+        wrap.is_some(),
+        "Wrap should exist for reasonably long symbols."
+    );
 }
 
 /// Test 10: Unauthorized Access - Non-Admin Cannot Mint
@@ -1169,7 +1187,7 @@ fn test_new_admin_can_propose_further_transfers() {
 #[should_panic(expected = "Error(Contract, #5)")]
 fn test_tampered_data_hash_invalidates_admin_signature() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[1u8; 32]);
@@ -1206,7 +1224,7 @@ fn test_tampered_data_hash_invalidates_admin_signature() {
         &user,
         &period,
         &archetype,
-        &data_hash_b,         // tampered: different from what was signed
+        &data_hash_b, // tampered: different from what was signed
         &CURRENT_PAYLOAD_VERSION,
         &signature,
     );

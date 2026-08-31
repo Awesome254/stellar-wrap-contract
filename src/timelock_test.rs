@@ -1,11 +1,10 @@
 #![cfg(test)]
 
-use crate::{StellarWrapContract, StellarWrapContractClient, timelock};
 use crate::storage_types::{DataKey, TimelockAction, TimelockOperation};
+use crate::{timelock, StellarWrapContract, StellarWrapContractClient};
 use soroban_sdk::{
-    vec,
-    testutils::Address as _,
-    BytesN, Env, Address,
+    testutils::{Address as _, Ledger},
+    vec, Address, BytesN, Env,
 };
 
 /// Registers + initializes the contract and enables the timelock with the
@@ -88,7 +87,10 @@ fn test_cancel_middle_keeps_others_in_order() {
     let b = client.timelock_schedule(&TimelockAction::SetWhitelistRoot(root(&env, 32)));
     let c = client.timelock_schedule(&TimelockAction::SetWhitelistRoot(root(&env, 33)));
 
-    assert_eq!(client.timelock_pending(), vec![&env, a.clone(), b.clone(), c.clone()]);
+    assert_eq!(
+        client.timelock_pending(),
+        vec![&env, a.clone(), b.clone(), c.clone()]
+    );
 
     client.timelock_cancel(&b);
 
