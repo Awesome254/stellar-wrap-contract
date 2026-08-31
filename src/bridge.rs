@@ -8,8 +8,14 @@ use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
-/// Set the bridge relayer address. Requires admin authorization.
-pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+/// Configure the bridge relayer set and threshold for a given chain.
+/// Requires admin authorization.
+pub(crate) fn set_bridge_relayers(
+    e: &Env,
+    chain_id: u32,
+    relayers: soroban_sdk::Vec<BytesN<32>>,
+    threshold: u32,
+) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
     if threshold == 0 || threshold > relayers.len() as u32 {
@@ -26,6 +32,24 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
     e.storage()
         .instance()
         .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
+}
+
+/// Set the single bridge relayer address used to authorize refunds.
+/// Requires admin authorization.
+pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+    let admin = crate::admin::read_admin(e);
+    admin.require_auth();
+    e.storage()
+        .instance()
+        .set(&DataKey::BridgeRelayer, &relayer);
+    e.storage()
+        .instance()
+        .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
+}
+
+/// Returns the configured bridge relayer address, or None if not set.
+pub(crate) fn get_bridge_relayer(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::BridgeRelayer)
 }
 
 /// Returns the configured bridge relayer set for a given chain, or None if not set.
@@ -357,13 +381,9 @@ pub(crate) fn bridge_wrap_in(
         }
         e.storage().persistent().set(&wrap_key, &existing_record);
 
-        e.events().publish(
-            (
-                crate::events::MintEventType::Transition.to_symbol(&e),
-                recipient.clone(),
-                period,
-            ),
-            crate::events::MintEventData::Transition(recipient.clone(), period, WrapState::Active),
+        crate::events::publish_event(
+            &e,
+            crate::events::Event::MintTransition(recipient.clone(), period, WrapState::Active),
         );
     }
 

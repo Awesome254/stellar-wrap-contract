@@ -257,9 +257,10 @@ pub(crate) fn execute(e: Env, id: BytesN<32>) {
                 .set(&DataKey::TimelockDelay, &seconds);
         }
         TimelockAction::Upgrade(wasm_hash) => {
-            e.events()
-                .publish((symbol_short!("upgrade"),), wasm_hash.clone());
-            e.deployer().update_current_contract_wasm(wasm_hash);
+            // Reuse the direct-upgrade path so a timelocked upgrade also bumps
+            // the ContractVersion counter and emits the same
+            // ("upgrade", version) event.
+            crate::admin::apply_upgrade(&e, wasm_hash);
         }
         TimelockAction::SetBridgeRelayers(chain_id, relayers) => {
             crate::bridge::set_bridge_relayers(&e, chain_id, relayers.relayers, relayers.threshold);

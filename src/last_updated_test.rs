@@ -41,8 +41,8 @@ fn setup(env: &Env, client: &StellarWrapContractClient) -> (SigningKey, Address,
     let admin = Address::generate(env);
     let user = Address::generate(env);
     env.mock_all_auths();
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
     (signing_key, admin, user)
 }
 

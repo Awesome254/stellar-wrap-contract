@@ -4,6 +4,7 @@ use crate::{StellarWrapContract, StellarWrapContractClient};
 use crate::test_utils::sign_payload;
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env};
+use std::string::ToString;
 
 #[test]
 fn test_has_wrap_agrees_with_get_wrap() {
@@ -16,8 +17,8 @@ fn test_has_wrap_agrees_with_get_wrap() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let period = 202401u64;
     let archetype = symbol_short!("arch");
@@ -56,7 +57,7 @@ fn test_version_format() {
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Get the version returned by the contract
-    let version_str: alloc::string::String = client.version().into();
+    let version_str: std::string::String = client.version().to_string();
     
     // Check if it matches major.minor.patch
     let parts: std::vec::Vec<&str> = version_str.split('.').collect();

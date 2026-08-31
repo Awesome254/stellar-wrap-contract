@@ -25,8 +25,8 @@ fn test_minting_flow() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let dummy_hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -58,8 +58,8 @@ fn test_mint_emits_event() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let period = 202401u64;
     let archetype = symbol_short!("arch");
@@ -101,8 +101,8 @@ fn test_revoke_emits_event_multi_user() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype_a = symbol_short!("gold");
     let archetype_b = symbol_short!("silvr");
@@ -172,8 +172,8 @@ fn test_revoke_non_latest_wrap_preserves_latest() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let older_hash = BytesN::from_array(&env, &[10u8; 32]);
@@ -223,8 +223,8 @@ fn test_balance_of_and_count() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("soroban");
     let hash = BytesN::from_array(&env, &[0u8; 32]);
@@ -451,8 +451,8 @@ fn test_duplicate_period_fails() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -482,8 +482,8 @@ fn test_update_admin_success() {
     let new_admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.update_admin(&new_admin);
     assert_eq!(client.get_admin().unwrap(), new_admin);
@@ -540,8 +540,8 @@ fn test_verify_data_matching_hash() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let data_json = Bytes::from_slice(&env, b"{\"score\":100,\"level\":\"gold\"}");
     let data_hash_raw = env.crypto().sha256(&data_json);
@@ -574,8 +574,8 @@ fn test_verify_data_non_matching_hash() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let original_data = Bytes::from_slice(&env, b"{\"score\":100}");
     let data_hash_raw = env.crypto().sha256(&original_data);
@@ -609,8 +609,8 @@ fn test_verify_data_corrupted_payload() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let original_data = Bytes::from_slice(&env, b"{\"valid\":true}");
     let data_hash_raw = env.crypto().sha256(&original_data);
@@ -659,8 +659,8 @@ fn test_mint_wrap_rejects_period_tampered_signature() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let data_hash = BytesN::from_array(&env, &[42u8; 32]);
@@ -730,8 +730,8 @@ fn test_mint_wrap_rejects_signature_from_wrong_key() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let data_hash = BytesN::from_array(&env, &[42u8; 32]);
@@ -777,8 +777,8 @@ fn test_get_wrap_existing_user_nonexistent_period() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     // Mint a wrap for the user at a specific period.
     let archetype = symbol_short!("arch");
@@ -823,8 +823,8 @@ fn test_get_latest_wrap_returns_most_recent() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash1 = BytesN::from_array(&env, &[10u8; 32]);
@@ -893,8 +893,8 @@ fn test_get_latest_wrap_single_mint() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[55u8; 32]);
     let archetype = symbol_short!("arch");
@@ -927,8 +927,8 @@ fn test_valid_period_boundaries() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let lower_hash = BytesN::from_array(&env, &[60u8; 32]);
@@ -972,8 +972,8 @@ fn test_invalid_period_zero_fails() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[70u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1003,8 +1003,8 @@ fn test_invalid_period_one_fails() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[71u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1034,8 +1034,8 @@ fn test_invalid_period_max_fails() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[72u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1063,8 +1063,8 @@ fn test_stress_mint_100_plus_unique_users() {
     let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     let admin = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let period = 202601u64;
@@ -1137,8 +1137,8 @@ fn test_non_monotonic_period_mints_across_users() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
 
@@ -1239,8 +1239,8 @@ fn test_migrate_applies_once_per_version() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     assert_eq!(client.migration_version(), 0);
 
@@ -1261,8 +1261,8 @@ fn test_migrate_rejects_replay() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.migrate(&1);
     client.migrate(&1);
@@ -1290,8 +1290,8 @@ fn test_get_mint_timestamp_exists() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let dummy_hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1342,8 +1342,8 @@ fn test_burn_wrap_removes_wrap_from_storage() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1380,8 +1380,8 @@ fn test_burn_wrap_decrements_count() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1435,8 +1435,8 @@ fn test_burn_wrap_requires_owner_auth() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1468,8 +1468,8 @@ fn test_burn_wrap_fails_for_nonexistent_wrap() {
 
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     let user = Address::generate(&env);
     // Try to burn a wrap that was never created
@@ -1487,8 +1487,8 @@ fn test_burn_wrap_emits_burn_event() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1538,8 +1538,8 @@ fn test_burn_wrap_owner_cannot_access_after() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1581,8 +1581,8 @@ fn test_burn_wrap_only_deletes_target() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1633,8 +1633,8 @@ fn test_burn_wrap_clears_latest_period() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1687,8 +1687,8 @@ fn test_burn_wrap_multiple_users_independent() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("arch");
@@ -1746,8 +1746,8 @@ fn test_burn_then_transfer_remaining_wrap_succeeds() {
         .register_stellar_asset_contract_v2(token_admin.clone())
         .address();
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
     // Configure fee with amount=0 so transfer succeeds without token balance
     client.set_transfer_fee(&token_id, &fee_recipient, &0i128);
 
@@ -1799,8 +1799,8 @@ fn test_wrap_count_equals_wrap_periods_len_after_mint_burn_transfer() {
         .register_stellar_asset_contract_v2(token_admin.clone())
         .address();
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
     // Configure fee with amount=0 so transfer succeeds without token balance
     client.set_transfer_fee(&token_id, &fee_recipient, &0i128);
 
@@ -1850,8 +1850,8 @@ fn test_get_all_wraps_for_user_returns_all_wraps() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash1 = BytesN::from_array(&env, &[10u8; 32]);
@@ -1925,8 +1925,8 @@ fn test_get_all_wraps_for_user_single_wrap() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("solo");
@@ -1963,8 +1963,8 @@ fn test_get_all_wraps_for_user_independent_per_user() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[42u8; 32]);
@@ -2487,8 +2487,8 @@ fn test_get_latest_wrap_multiple_wraps() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash1 = BytesN::from_array(&env, &[10u8; 32]);
@@ -2604,6 +2604,8 @@ fn test_get_wrap_nonexistent_user_returns_none() {
         0,
         "balance_of must be zero for a user that has never minted"
     );
+}
+
 #[test]
 fn test_storage_md_documents_every_datakey_variant() {
     let storage_md = include_str!("../STORAGE.md");
@@ -2756,8 +2758,8 @@ fn test_batch_individual_sig_rejects_opted_out_user() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[1u8; 32]);
@@ -2791,8 +2793,8 @@ fn test_batch_individual_sig_opted_out_leaves_no_partial_state() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[2u8; 32]);
@@ -2833,8 +2835,8 @@ fn test_batch_aggregated_sig_rejects_opted_out_user() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[3u8; 32]);
@@ -2885,8 +2887,8 @@ fn test_batch_aggregated_sig_opted_out_leaves_no_partial_state() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[4u8; 32]);
@@ -2956,8 +2958,8 @@ fn test_total_revoked_increments_correctly() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[9u8; 32]);
@@ -3005,8 +3007,8 @@ fn test_revoke_then_transfer_succeeds() {
         .register_stellar_asset_contract_v2(token_admin.clone())
         .address();
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
     client.set_transfer_fee(&token_id, &fee_recipient, &0i128);
 
     let archetype = symbol_short!("arch");
@@ -3048,8 +3050,8 @@ fn test_revoke_keeps_index_invariant() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let hash = BytesN::from_array(&env, &[8u8; 32]);
