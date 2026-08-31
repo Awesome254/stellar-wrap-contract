@@ -393,6 +393,7 @@ impl StellarWrapContract {
     /// Only the `user` themselves can call this — `require_auth` is enforced
     /// inside the alias module. The hash is stored as opaque 32-byte data so
     /// no raw personal information ever touches the chain.
+    /// Does not require the contract to be initialized.
     pub fn set_alias_hash(e: Env, user: Address, alias_hash: BytesN<32>) {
         alias::set_alias_hash(e, user, alias_hash);
     }
@@ -813,3 +814,95 @@ mod test_vectors;
 mod transfer_test;
 #[cfg(test)]
 mod queries_test;
+
+#[cfg(test)]
+mod alias_test {
+    use super::StellarWrapContract;
+    use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
+
+    fn register(env: &Env) -> Address {
+        env.register_contract(None, StellarWrapContract)
+    }
+
+    fn hash(env: &Env, b: u8) -> BytesN<32> {
+        let mut a = [0u8; 32];
+        a[0] = b;
+        BytesN::from_array(env, &a)
+    }
+
+    fn set(env: &Env, id: &Address, user: &Address, h: &BytesN<32>) {
+        env.invoke_contract::<()>(id, "set_alias_hash", (user.clone(), h.clone()));
+    }
+
+    fn get(env: &Env, id: &Address, user: &Address) -> Option<BytesN<32>> {
+        env.invoke_contract(id, "get_alias_hash", (user.clone(),))
+    }
+
+    #[test]
+    fn returns_none_before_set() {
+        let env = Env::default();
+        let id = register(&env);
+        let user = Address::generate(&env);
+        assert!(get(&env, &id, &user).is_none());
+    }
+
+    #[test]
+    fn set_and_get_round_trips() {
+        let mut env = Env::default();
+        env.mock_all_auths();
+        let id = register(&env);
+        let user = Address::generate(&env);
+        let h = hash(&env, 0xab);
+        set(&env, &id, &user, &h);
+        assert_eq!(get(&env, &id, &user), Some(h));
+    }
+
+    #[test]
+    fn overwrite_replaces() {
+        let mut env = Env::default();
+        env.mock_all_auths();
+        let id = register(&env);
+        let user = Address::generate(&env);
+        let old = hash(&env, 1);
+        let new = hash(&env, 2);
+        set(&env, &id, &user, &old);
+        set(&env, &id, &user, &new);
+        assert_eq!(get(&env, &id, &user), Some(new));
+    }
+
+    #[test]
+    #[should_panic]
+    fn requires_user_auth() {
+        let env = Env::default();
+        let id = register(&env);
+        let user = Address::generate(&env);
+        let h = hash(&env, 1);
+        env.invoke_contract::<()>(&id, "set_alias_hash", (user, h));
+    }
+
+    #[test]
+    fn users_are_independent() {
+        let mut env = Env::default();
+        env.mock_all_auths();
+        let id = register(&env);
+        let a = Address::generate(&env);
+        let b = Address::generate(&env);
+        let ha = hash(&env, 0xaa);
+        let hb = hash(&env, 0xbb);
+        set(&env, &id, &a, &ha);
+        set(&env, &id, &b, &hb);
+        assert_eq!(get(&env, &id, &a), Some(ha));
+        assert_eq!(get(&env, &id, &b), Some(hb));
+    }
+
+    #[test]
+    fn no_initialize_required() {
+        let mut env = Env::default();
+        env.mock_all_auths();
+        let id = register(&env);
+        let user = Address::generate(&env);
+        let h = hash(&env, 0x42);
+        set(&env, &id, &user, &h);
+        assert_eq!(get(&env, &id, &user), Some(h));
+    }
+}
