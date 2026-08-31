@@ -44,6 +44,7 @@ fn sign_mint_payload(
     BytesN::from_array(env, &signature.to_bytes())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn sign_inbound_payload(
     env: &Env,
     signer: &SigningKey,
@@ -78,7 +79,7 @@ fn test_set_and_get_bridge_relayers() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, _signing_key) = setup_test_env(&env);
 
     let chain_id = 1u32;
     assert_eq!(client.get_bridge_relayers(&chain_id), None);
@@ -101,7 +102,7 @@ fn test_set_and_check_chain_status() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, _signing_key) = setup_test_env(&env);
 
     let chain_eth = 1u32;
     let chain_sol = 900u32;
@@ -122,7 +123,7 @@ fn test_invalid_chain_zero() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, _signing_key) = setup_test_env(&env);
     assert!(!client.is_chain_supported(&0));
 }
 
@@ -277,7 +278,7 @@ fn test_bridge_wrap_in_success() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, _signing_key) = setup_test_env(&env);
 
     let source_chain = 1u32;
     client.set_chain_status(&source_chain, &true);
@@ -548,7 +549,7 @@ fn test_bridge_wrap_in_replay_attack_fails() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, _signing_key) = setup_test_env(&env);
 
     let source_chain = 1u32;
     client.set_chain_status(&source_chain, &true);

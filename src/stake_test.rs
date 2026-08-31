@@ -534,7 +534,7 @@ mod stake_priority_prop_tests {
             amount_a in 0i128..=i128::MAX / 2,
         ) {
             // amount_b is any value >= amount_a (saturate so we don't overflow)
-            let amount_b = amount_a.saturating_add(amount_a / 2 + 1).min(i128::MAX);
+            let amount_b = amount_a.saturating_add(amount_a / 2 + 1);
 
             let p_a = compute_priority(amount_a, min_stake, multiplier_bps, max_bps);
             let p_b = compute_priority(amount_b, min_stake, multiplier_bps, max_bps);
