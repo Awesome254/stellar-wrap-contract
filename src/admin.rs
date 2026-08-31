@@ -1,7 +1,7 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env};
 
 use crate::mint::TTL_TEMP;
-use crate::{ContractError, DataKey, TransferFeeConfig};
+use crate::{ContractError, DataKey, TransferFeeConfig, WrapRecord};
 
 /// Reads the stored admin or panics with `NotInitialized`.
 pub(crate) fn read_admin(e: &Env) -> Address {
@@ -259,4 +259,52 @@ pub(crate) fn set_symbol(e: Env, symbol: soroban_sdk::String) {
     e.storage()
         .temporary()
         .extend_ttl(&DataKey::Symbol, TTL_TEMP, TTL_TEMP);
+}
+
+/// Admin-only: set metadata (description and image URL) for a specific wrap.
+///
+/// The wrap must already exist. Both strings are length-limited to prevent
+/// storage abuse. Emits an event; the storage layer accounts for the changed
+/// record size automatically.
+#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
+pub(crate) fn set_wrap_metadata(
+    e: Env,
+    user: Address,
+    period: u64,
+    description: soroban_sdk::String,
+    image_url: soroban_sdk::String,
+) {
+    read_admin(&e).require_auth();
+
+    const MAX_DESCRIPTION_LEN: u32 = 256;
+    const MAX_IMAGE_URL_LEN: u32 = 512;
+
+    if description.len() > MAX_DESCRIPTION_LEN || image_url.len() > MAX_IMAGE_URL_LEN {
+        panic_with_error!(e, ContractError::InvalidFeeParams);
+    }
+
+    let key = DataKey::Wrap(user.clone(), period);
+    if !e.storage().persistent().has(&key) {
+        panic_with_error!(e, ContractError::NotInitialized);
+    }
+
+    let mut record: WrapRecord = e
+        .storage()
+        .persistent()
+        .get(&key)
+        .unwrap();
+    record.description = Some(description.clone());
+    record.image_url = Some(image_url.clone());
+
+    e.storage().persistent().set(&key, &record);
+    e.storage().persistent().extend_ttl(&key, TTL_TEMP, TTL_TEMP);
+
+    e.events().publish(
+        (
+            symbol_short!("v1"),
+            symbol_short!("admin"),
+            symbol_short!("metadata"),
+        ),
+        (user, period, description, image_url),
+    );
 }
