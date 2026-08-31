@@ -1,4 +1,4 @@
-.PHONY: build test fuzz fuzz-build fmt fmt-check lint doc clean deploy-testnet wasm-build docker-build docker-build-verify coverage check-wasm-size
+.PHONY: build test fuzz fuzz-build fmt fmt-check lint doc clean deploy-testnet wasm-build wasm-size check-wasm-size docker-build docker-build-verify coverage
 
 # ── Build ────────────────────────────────────────────────────────────────────
 
@@ -12,6 +12,9 @@ wasm-build:
 ## check-wasm-size: Measure compiled WASM size against 200 KB budget (see SIGNATURE_VERIFICATION_DECISION.md)
 check-wasm-size:
 	./scripts/check_wasm_size.sh
+
+## wasm-size: Alias for check-wasm-size
+wasm-size: check-wasm-size
 
 ## soroban-build: Build via the Stellar CLI (alternative to cargo build --target wasm32)
 soroban-build:

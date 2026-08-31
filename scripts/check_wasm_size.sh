@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 # scripts/check_wasm_size.sh
-# Measures compiled Soroban contract WASM binary size against the 200 KB budget.
+# Measures compiled Soroban contract WASM binary size against the budget.
 # See SIGNATURE_VERIFICATION_DECISION.md for architectural and trade-off details.
 
 set -euo pipefail
 
-BUDGET_BYTES=204800 # 200 KB
+cd "$(dirname "$0")/.."
+
+if [ -f ".github/wasm-size-limit" ]; then
+    BUDGET_BYTES=$(tr -d '[:space:]' < .github/wasm-size-limit)
+else
+    BUDGET_BYTES=204800 # 200 KB default
+fi
 
 # Determine optimal target for active rustc toolchain
-if rustc --print target-list | grep -q "^wasm32v1-none$"; then
+if rustc --print target-list 2>/dev/null | grep -q "^wasm32v1-none$"; then
     TARGET="wasm32v1-none"
 else
     TARGET="wasm32-unknown-unknown"
@@ -32,6 +38,7 @@ fi
 
 SIZE_BYTES=$(wc -c < "${WASM_FILE}" | tr -d ' ')
 SIZE_KB=$(awk "BEGIN {printf \"%.2f\", ${SIZE_BYTES} / 1024}")
+BUDGET_KB=$(awk "BEGIN {printf \"%.2f\", ${BUDGET_BYTES} / 1024}")
 BUDGET_PERCENT=$(awk "BEGIN {printf \"%.2f\", (${SIZE_BYTES} / ${BUDGET_BYTES}) * 100}")
 
 echo ""
@@ -41,7 +48,7 @@ echo "========================================================"
 echo "WASM Artifact  : ${WASM_FILE}"
 echo "Compile Target : ${TARGET}"
 echo "Artifact Size  : ${SIZE_BYTES} bytes (${SIZE_KB} KB)"
-echo "WASM Budget    : ${BUDGET_BYTES} bytes (200.00 KB)"
+echo "WASM Budget    : ${BUDGET_BYTES} bytes (${BUDGET_KB} KB)"
 echo "Budget Usage   : ${BUDGET_PERCENT}%"
 
 if [ "${SIZE_BYTES}" -le "${BUDGET_BYTES}" ]; then
