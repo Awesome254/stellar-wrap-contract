@@ -73,6 +73,10 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
             &e,
             storage_accounting::estimate_wrapcount_bytes_new(),
         );
+        storage_accounting::sub_storage_bytes(
+            &e,
+            storage_accounting::estimate_latest_bytes_new(),
+        );
     } else {
         e.storage()
             .persistent()
@@ -117,6 +121,10 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
 
     if remaining_user_periods.is_empty() {
         e.storage().persistent().remove(&user_periods_key);
+        storage_accounting::sub_storage_bytes(
+            &e,
+            storage_accounting::estimate_userperiods_bytes_new(),
+        );
     } else {
         e.storage()
             .persistent()
