@@ -1,6 +1,13 @@
 use crate::{ContractHealth, DataKey, TransferFeeConfig, WrapRecord};
 use soroban_sdk::{Address, Bytes, BytesN, Env, String};
 
+/// Intended maximum number of wrap records returned by a single unbounded query.
+///
+/// A future change will cap [`get_all_wraps_for_user`] at this limit. Until then,
+/// the function still delegates to [`get_wraps`] with `limit = u32::MAX` and does
+/// not enforce this bound at runtime.
+pub const MAX_QUERY_RESULTS: u32 = 200;
+
 pub(crate) fn get_wrap(e: Env, user: Address, period: u64) -> Option<WrapRecord> {
     e.storage().persistent().get(&DataKey::Wrap(user, period))
 }
@@ -119,6 +126,15 @@ pub(crate) fn get_wraps(
     results
 }
 
+/// Returns every wrap record owned by `user` in a single call.
+///
+/// This is a convenience wrapper around [`get_wraps`] that requests all records
+/// without pagination. It is intended for bounded queries of at most
+/// [`MAX_QUERY_RESULTS`] (200) records. Callers with larger datasets should use
+/// the paginated [`get_wraps`] instead to stay within Soroban resource limits.
+///
+/// **Note:** This bound is not yet enforced; the current implementation still
+/// passes `limit = u32::MAX` to [`get_wraps`].
 pub(crate) fn get_all_wraps_for_user(e: Env, user: Address) -> soroban_sdk::Vec<WrapRecord> {
     // Fetch all wraps by using the maximum possible range.
     get_wraps(e, user, 0, u32::MAX)

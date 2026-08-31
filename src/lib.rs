@@ -246,9 +246,13 @@ impl StellarWrapContract {
 
     /// Returns every wrap record owned by `user` in a single call.
     ///
-    /// This is a convenience wrapper around `get_wraps` that fetches all
-    /// records without pagination. For users with many wraps, prefer the
-    /// paginated `get_wraps` to stay within Soroban resource limits.
+    /// This is a convenience wrapper around [`Self::get_wraps`] that fetches all
+    /// records without pagination. It is intended for bounded queries of at most
+    /// 200 records. For users with more wraps, prefer the paginated
+    /// [`Self::get_wraps`] to stay within Soroban resource limits.
+    ///
+    /// **Note:** The 200-record bound is not yet enforced at runtime; this
+    /// function currently still requests all records in one call.
     pub fn get_all_wraps_for_user(e: Env, user: Address) -> soroban_sdk::Vec<WrapRecord> {
         queries::get_all_wraps_for_user(e, user)
     }
