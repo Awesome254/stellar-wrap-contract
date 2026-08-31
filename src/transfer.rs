@@ -54,23 +54,29 @@ fn write_owner_state(e: &Env, owner: &Address, periods: &Vec<u64>) {
     let count_key = DataKey::WrapCount(owner.clone());
     let latest_key = DataKey::LatestPeriod(owner.clone());
     let periods_key = DataKey::WrapPeriods(owner.clone());
+    let user_periods_key = DataKey::UserPeriods(owner.clone());
 
     if periods.is_empty() {
         e.storage().persistent().remove(&count_key);
         e.storage().persistent().remove(&latest_key);
         e.storage().persistent().remove(&periods_key);
+        e.storage().persistent().remove(&user_periods_key);
         return;
     }
 
     let count = periods.len();
     e.storage().persistent().set(&count_key, &count);
     e.storage().persistent().set(&periods_key, periods);
+    e.storage().persistent().set(&user_periods_key, periods);
     e.storage()
         .persistent()
         .extend_ttl(&count_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
     e.storage()
         .persistent()
         .extend_ttl(&periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
+    e.storage()
+        .persistent()
+        .extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
     let latest = latest_period(periods)
         .unwrap_or_else(|| panic_with_error!(e, ContractError::StorageInvariantViolation));
@@ -186,6 +192,9 @@ pub(crate) fn transfer_wrap(e: Env, from: Address, to: Address, period: u64) {
     destination_periods.push_back(period);
     write_owner_state(&e, &from, &source_periods);
     write_owner_state(&e, &to, &destination_periods);
+
+    crate::mint::update_last_updated(&e, &from);
+    crate::mint::update_last_updated(&e, &to);
 
     e.storage().temporary().remove(&DataKey::TransferGuard);
     if let Some(ref fee) = fee {

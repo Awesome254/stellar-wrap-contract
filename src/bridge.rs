@@ -1,18 +1,24 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, Bytes, BytesN, Env, Symbol};
 
-use crate::storage_types::{
-    BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord, WrapState,
-};
 use crate::signature::verify_inbound_bridge_signature;
+use crate::storage_types::{
+    BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord,
+    WrapState,
+};
 use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
-/// Set the bridge relayer address. Requires admin authorization.
-pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+/// Configure the bridge relayer set and threshold for a given chain. Requires admin authorization.
+pub(crate) fn set_bridge_relayers(
+    e: &Env,
+    chain_id: u32,
+    relayers: soroban_sdk::Vec<BytesN<32>>,
+    threshold: u32,
+) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
-    if threshold == 0 || threshold > relayers.len() as u32 {
+    if threshold == 0 || threshold > relayers.len() {
         panic_with_error!(e, ContractError::InvalidThreshold);
     }
     let key = DataKey::BridgeRelayerSet(chain_id);
@@ -20,9 +26,7 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
         relayers,
         threshold,
     };
-    e.storage()
-        .instance()
-        .set(&key, &relayer_set);
+    e.storage().instance().set(&key, &relayer_set);
     e.storage()
         .instance()
         .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
@@ -30,7 +34,9 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
 
 /// Returns the configured bridge relayer set for a given chain, or None if not set.
 pub(crate) fn get_bridge_relayers(e: &Env, chain_id: u32) -> Option<BridgeRelayerSet> {
-    e.storage().instance().get(&DataKey::BridgeRelayerSet(chain_id))
+    e.storage()
+        .instance()
+        .get(&DataKey::BridgeRelayerSet(chain_id))
 }
 
 /// Enable or disable a cross-chain network chain ID. Requires admin authorization.
@@ -134,9 +140,8 @@ pub(crate) fn bridge_wrap_out(
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
 
-    let relayer = get_bridge_relayer(&e)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
-    relayer.require_auth();
+    let admin = crate::admin::read_admin(&e);
+    admin.require_auth();
 
     let request_key = DataKey::OutboundBridgeRequest(outbound_nonce);
     let request: OutboundBridgeRequest = e
@@ -221,8 +226,10 @@ pub(crate) fn bridge_wrap_in(
                 period,
                 &archetype,
                 &data_hash,
-                &sig
-            ).is_ok() {
+                &sig,
+            )
+            .is_ok()
+            {
                 used_relayers.push_back(relayer);
                 matched = true;
                 break;
@@ -282,77 +289,10 @@ pub(crate) fn bridge_wrap_in(
             image_url: None,
         };
 
-        e.storage().persistent().set(&wrap_key, &record);
-        e.storage()
-            .persistent()
-            .extend_ttl(&wrap_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-        storage_accounting::add_storage_bytes(&e, storage_accounting::estimate_wrap_bytes_new());
-
-        let count_key = DataKey::WrapCount(recipient.clone());
-        let current_count: u32 = e.storage().persistent().get(&count_key).unwrap_or(0);
-        let next_count = current_count + 1;
-        e.storage().persistent().set(&count_key, &next_count);
-        e.storage()
-            .persistent()
-            .extend_ttl(&count_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-        let total_key = DataKey::TotalWrapCount;
-        let current_total: u32 = e.storage().persistent().get(&total_key).unwrap_or(0);
-        let next_total = current_total + 1;
-        e.storage().persistent().set(&total_key, &next_total);
-        e.storage()
-            .persistent()
-            .extend_ttl(&total_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-        if current_count == 0 {
-            storage_accounting::add_storage_bytes(
-                &e,
-                storage_accounting::estimate_wrapcount_bytes_new(),
-            );
-        }
-
-        crate::mint::update_latest_period(&e, &recipient, period);
-
-        let user_periods_key = DataKey::UserPeriods(recipient.clone());
-        let mut periods: soroban_sdk::Vec<u64> = e
-            .storage()
-            .persistent()
-            .get(&user_periods_key)
-            .unwrap_or(soroban_sdk::Vec::new(&e));
-
-        if !periods.contains(period) {
-            periods.push_back(period);
-            e.storage().persistent().set(&user_periods_key, &periods);
-            e.storage()
-                .persistent()
-                .extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-            storage_accounting::add_storage_bytes(
-                &e,
-                storage_accounting::estimate_userperiods_bytes_new(),
-            );
-        }
-
-        let wrap_periods_key = DataKey::WrapPeriods(recipient.clone());
-        let mut wrap_periods: soroban_sdk::Vec<u64> = e
-            .storage()
-            .persistent()
-            .get(&wrap_periods_key)
-            .unwrap_or(soroban_sdk::Vec::new(&e));
-
-        if !wrap_periods.contains(period) {
-            wrap_periods.push_back(period);
-            e.storage()
-                .persistent()
-                .set(&wrap_periods_key, &wrap_periods);
-            e.storage()
-                .persistent()
-                .extend_ttl(&wrap_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-        }
+        crate::mint::insert_wrap_record(&e, &recipient, period, &record);
     } else {
         let mut existing_record: WrapRecord = e.storage().persistent().get(&wrap_key).unwrap();
-        if !existing_record.fsm.transition_to(WrapState::Active, now) {
+        if !existing_record.fsm.restore_from_bridge(now) {
             panic_with_error!(e, ContractError::InvalidStateTransition);
         }
         e.storage().persistent().set(&wrap_key, &existing_record);
@@ -365,31 +305,6 @@ pub(crate) fn bridge_wrap_in(
             ),
             crate::events::MintEventData::Transition(recipient.clone(), period, WrapState::Active),
         );
-    }
-
-    let wrap_periods_key = DataKey::WrapPeriods(recipient.clone());
-    let mut wrap_periods: soroban_sdk::Vec<u64> = e
-        .storage()
-        .persistent()
-        .get(&wrap_periods_key)
-        .unwrap_or(soroban_sdk::Vec::new(&e));
-    if !wrap_periods.contains(period) {
-        wrap_periods.push_back(period);
-        e.storage()
-            .persistent()
-            .set(&wrap_periods_key, &wrap_periods);
-        e.storage()
-            .persistent()
-            .extend_ttl(&wrap_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-    }
-
-    let wrap_count: u32 = e
-        .storage()
-        .persistent()
-        .get(&DataKey::WrapCount(recipient.clone()))
-        .unwrap_or(0);
-    if wrap_count != wrap_periods.len() {
-        panic_with_error!(e, ContractError::StorageInvariantViolation);
     }
 
     let inbound_rec = InboundBridgeRecord {
