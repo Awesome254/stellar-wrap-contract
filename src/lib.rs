@@ -60,6 +60,7 @@ pub use token::TokenInterface;
 pub struct StellarWrapContract;
 
 #[contractimpl]
+#[allow(clippy::too_many_arguments)]
 impl StellarWrapContract {
     pub fn initialize(e: Env, admin: Address, admin_pubkey: BytesN<32>) {
         admin::initialize(e, admin, admin_pubkey);
@@ -604,6 +605,7 @@ impl StellarWrapContract {
     }
 
     /// Fulfill an inbound cross-chain wrap bridge transfer from external chain.
+    #[allow(clippy::too_many_arguments)]
     pub fn bridge_wrap_in(
         e: Env,
         source_chain: u32,

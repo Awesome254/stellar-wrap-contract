@@ -165,6 +165,7 @@ pub struct InboundBridgePayload {
     pub source_nonce: u64,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn construct_inbound_bridge_payload(
     e: &Env,
     contract_id: &Address,
@@ -192,6 +193,7 @@ pub fn construct_inbound_bridge_payload(
     payload
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn verify_inbound_bridge_signature(
     e: &Env,
     relayer_pubkey: &BytesN<32>,

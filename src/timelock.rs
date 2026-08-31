@@ -107,7 +107,7 @@ pub(crate) fn operation_id(e: &Env, action: &TimelockAction) -> BytesN<32> {
         },
         TimelockAction::SetBridgeRelayers(chain_id, relayers) => {
             data.append(&Bytes::from_array(e, &[6u8]));
-            data.append(&chain_id.clone().to_xdr(e));
+            data.append(&(*chain_id).to_xdr(e));
             data.append(&relayers.clone().to_xdr(e));
         },
     }

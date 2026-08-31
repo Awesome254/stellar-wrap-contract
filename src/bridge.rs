@@ -21,7 +21,7 @@ pub(crate) fn set_bridge_relayers(
 ) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
-    if threshold == 0 || threshold > relayers.len() as u32 {
+    if threshold == 0 || threshold > relayers.len() {
         panic_with_error!(e, ContractError::InvalidThreshold);
     }
     let key = DataKey::BridgeRelayerSet(chain_id);
@@ -172,6 +172,7 @@ pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
         .persistent()
         .extend_ttl(&wrap_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
+    #[allow(deprecated)]
     e.events().publish(
         (
             symbol_short!("br_refund"),
@@ -189,6 +190,7 @@ pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
 /// wrap records. The inbound nonce is still consumed and a `br_in_rej` event
 /// is emitted so the relayer does not retry the rejected message indefinitely.
 #[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn bridge_wrap_in(
     e: Env,
     source_chain: u32,
