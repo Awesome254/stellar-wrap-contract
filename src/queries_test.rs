@@ -2,6 +2,7 @@
 
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env};
+use std::string::ToString;
 
 use crate::{test_utils::sign_payload, StellarWrapContract, StellarWrapContractClient};
 
@@ -65,7 +66,7 @@ fn test_version_format() {
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Get the version returned by the contract
-    let version_str: std::string::String = client.version().to_alloc_string();
+    let version_str: std::string::String = client.version().to_string();
 
     // Check if it matches major.minor.patch
     let parts: std::vec::Vec<&str> = version_str.split('.').collect();

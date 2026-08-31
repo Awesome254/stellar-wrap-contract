@@ -78,7 +78,7 @@ fn test_set_and_get_bridge_relayers() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
 
     let chain_id = 1u32;
     assert_eq!(client.get_bridge_relayers(&chain_id), None);
@@ -101,7 +101,7 @@ fn test_set_and_check_chain_status() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
 
     let chain_eth = 1u32;
     let chain_sol = 900u32;
@@ -122,7 +122,7 @@ fn test_invalid_chain_zero() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     assert!(!client.is_chain_supported(&0));
 }
 
@@ -182,7 +182,7 @@ fn test_bridged_wrap_blocks_escape_routes_and_supports_refund() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     relayers.push_back(relayer_pubkey);
@@ -277,7 +277,7 @@ fn test_bridge_wrap_in_success() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
 
     let source_chain = 1u32;
     client.set_chain_status(&source_chain, &true);
@@ -336,7 +336,6 @@ fn test_bridge_wrap_in_success() {
         &archetype,
         &data_hash,
         &signatures,
-        &soroban_sdk::Vec::new(&env),
     );
 
     assert!(client.is_inbound_nonce_processed(&source_chain, &source_nonce));
@@ -362,7 +361,7 @@ fn test_bridge_wrap_in_then_mint_succeeds() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     relayers.push_back(relayer_pubkey);
@@ -416,7 +415,7 @@ fn test_bridge_wrap_in_then_transfer_succeeds() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     relayers.push_back(relayer_pubkey);
@@ -454,7 +453,7 @@ fn test_bridge_wrap_in_rejects_opted_out_recipient() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
 
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
@@ -493,7 +492,7 @@ fn test_bridge_wrap_in_rejects_terminal_states() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
 
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
@@ -549,7 +548,7 @@ fn test_bridge_wrap_in_replay_attack_fails() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
 
     let source_chain = 1u32;
     client.set_chain_status(&source_chain, &true);
@@ -588,7 +587,6 @@ fn test_bridge_wrap_in_replay_attack_fails() {
         &archetype,
         &data_hash,
         &signatures,
-        &soroban_sdk::Vec::new(&env),
     );
 
     let result = catch_unwind(AssertUnwindSafe(|| {
@@ -600,7 +598,6 @@ fn test_bridge_wrap_in_replay_attack_fails() {
             &archetype,
             &data_hash,
             &signatures,
-            &soroban_sdk::Vec::new(&env),
         );
     }));
 
@@ -669,7 +666,6 @@ fn test_bridge_paused_blocks_operations() {
             &archetype,
             &data_hash,
             &signatures,
-            &soroban_sdk::Vec::new(&env),
         );
     }));
     assert!(in_result.is_err());
@@ -680,7 +676,7 @@ fn test_mint_wrap_and_bridge_wrap_in_period_validation_parity() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     relayers.push_back(relayer_pubkey);
@@ -770,7 +766,7 @@ fn test_bridge_wrap_in_fresh_recipient_then_mint_wrap_succeeds() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, signing_key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     relayers.push_back(relayer_pubkey);
@@ -817,7 +813,7 @@ fn test_transfer_wrap_of_bridged_record_succeeds() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     relayers.push_back(relayer_pubkey);
@@ -860,7 +856,7 @@ fn test_bridge_wrap_in_index_invariants() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     relayers.push_back(relayer_pubkey);
@@ -914,7 +910,7 @@ fn test_bridge_wrap_in_existing_period_updates_rather_than_duplicating() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, relayer, _key) = setup_test_env(&env);
+    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
     let mut relayers = soroban_sdk::Vec::new(&env);
     let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     relayers.push_back(relayer_pubkey);
