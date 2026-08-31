@@ -813,3 +813,5 @@ mod test_vectors;
 mod transfer_test;
 #[cfg(test)]
 mod queries_test;
+#[cfg(test)]
+mod timelock_test;
