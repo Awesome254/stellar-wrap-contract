@@ -1,9 +1,6 @@
-use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env, Vec};
+use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env};
 
-use crate::storage_accounting;
 use crate::{ContractError, DataKey};
-
-const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
 /// Revokes an existing wrap record for the given user and period.
 ///
@@ -35,104 +32,16 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
 
     admin.require_auth();
 
-    let wrap_key = DataKey::Wrap(user.clone(), period);
-    if !e.storage().persistent().has(&wrap_key) {
-        panic_with_error!(e, ContractError::WrapNotFound);
-    }
+    // Remove the wrap record and unwind all per-user bookkeeping.
+    crate::wrap_record_helpers::remove_wrap_record(&e, &user, period);
 
-    // Remove the wrap entry and subtract estimated bytes
-    e.storage().persistent().remove(&wrap_key);
-    storage_accounting::sub_storage_bytes(&e, storage_accounting::estimate_wrap_bytes_new());
-
-    // Update WrapPeriods, WrapCount, and LatestPeriod atomically — mirrors
-    // burn_wrap so the invariant WrapCount == WrapPeriods.len() always holds.
-    let wrap_periods_key = DataKey::WrapPeriods(user.clone());
-    let wrap_periods: Vec<u64> = e
-        .storage()
-        .persistent()
-        .get(&wrap_periods_key)
-        .unwrap_or_else(|| Vec::new(&e));
-
-    let mut remaining_wrap_periods: Vec<u64> = Vec::new(&e);
-    for p in wrap_periods.iter() {
-        if p != period {
-            remaining_wrap_periods.push_back(p);
-        }
-    }
-
-    let count_key = DataKey::WrapCount(user.clone());
-    let new_count = remaining_wrap_periods.len();
-
-    if remaining_wrap_periods.is_empty() {
-        e.storage().persistent().remove(&wrap_periods_key);
-        e.storage().persistent().remove(&count_key);
-        e.storage()
-            .persistent()
-            .remove(&DataKey::LatestPeriod(user.clone()));
-        storage_accounting::sub_storage_bytes(
-            &e,
-            storage_accounting::estimate_wrapcount_bytes_new(),
-        );
-    } else {
-        e.storage()
-            .persistent()
-            .set(&wrap_periods_key, &remaining_wrap_periods);
-        e.storage()
-            .persistent()
-            .extend_ttl(&wrap_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-        e.storage().persistent().set(&count_key, &new_count);
-        e.storage()
-            .persistent()
-            .extend_ttl(&count_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-        // Recompute LatestPeriod from remaining periods
-        let mut latest: u64 = 0;
-        for p in remaining_wrap_periods.iter() {
-            if p > latest {
-                latest = p;
-            }
-        }
-        let latest_key = DataKey::LatestPeriod(user.clone());
-        e.storage().persistent().set(&latest_key, &latest);
-        e.storage()
-            .persistent()
-            .extend_ttl(&latest_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-    }
-
-    // Keep UserPeriods in sync (legacy index used by get_wraps / get_latest_wrap)
-    let user_periods_key = DataKey::UserPeriods(user.clone());
-    let user_periods: Vec<u64> = e
-        .storage()
-        .persistent()
-        .get(&user_periods_key)
-        .unwrap_or_else(|| Vec::new(&e));
-
-    let mut remaining_user_periods: Vec<u64> = Vec::new(&e);
-    for p in user_periods.iter() {
-        if p != period {
-            remaining_user_periods.push_back(p);
-        }
-    }
-
-    if remaining_user_periods.is_empty() {
-        e.storage().persistent().remove(&user_periods_key);
-    } else {
-        e.storage()
-            .persistent()
-            .set(&user_periods_key, &remaining_user_periods);
-        e.storage()
-            .persistent()
-            .extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-    }
-
+    // Increment TotalRevoked with overflow protection (instance storage).
     let total_revoked_key = DataKey::TotalRevoked;
     let current_total: u64 = e.storage().instance().get(&total_revoked_key).unwrap_or(0);
-    let next_total = current_total.checked_add(1).unwrap_or_else(|| panic_with_error!(&e, ContractError::ArithmeticOverflow));
+    let next_total = current_total
+        .checked_add(1)
+        .unwrap_or_else(|| panic_with_error!(&e, ContractError::ArithmeticOverflow));
     e.storage().instance().set(&total_revoked_key, &next_total);
-
-    // Record the revocation timestamp in the user's last-updated marker.
-    crate::mint::update_last_updated(&e, &user);
 
     e.events()
         .publish((symbol_short!("revoke"), user, period), reason_hash);

@@ -45,6 +45,7 @@ mod storage_types;
 mod timelock;
 mod token;
 mod transfer;
+mod wrap_record_helpers;
 
 pub use errors::ContractError;
 pub use mint::{validate_period, CURRENT_PAYLOAD_VERSION, MAX_PERIOD_YEAR, MIN_PERIOD_YEAR};
@@ -799,6 +800,8 @@ mod last_updated_test;
 mod oracle_test;
 #[cfg(test)]
 mod prop_test;
+#[cfg(test)]
+mod revoke_burn_parity_test;
 #[cfg(test)]
 mod security_test;
 #[cfg(test)]
