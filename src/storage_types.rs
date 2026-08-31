@@ -11,6 +11,7 @@ pub enum WrapState {
     Archived = 4,
     Cancelled = 5,
     Expired = 6,
+    Bridged = 7,
 }
 
 #[contracttype]
@@ -52,17 +53,40 @@ impl WrapLifecycleFSM {
             false
         }
     }
+
+    pub(crate) fn restore_from_bridge(&mut self, now: u64) -> bool {
+        if self.state == WrapState::Bridged {
+            self.state = WrapState::Active;
+            self.updated_at = now;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WrapRecord {
+    /// Timestamp associated with the wrap record.
     pub timestamp: u64,
+
+    /// 32-byte hash associated with the wrapped data.
     pub data_hash: BytesN<32>,
+
+    /// Symbol identifying the wrap's archetype.
     pub archetype: Symbol,
-    pub period: u64, // Standardized to u64 for better indexing/sorting
+
+    /// Period identifier used with the user to address this record in persistent storage.
+    pub period: u64,
+
+    /// Current lifecycle state and its last update timestamp.
     pub fsm: WrapLifecycleFSM,
+
+    /// Optional description associated with the wrap.
     pub description: Option<String>,
+
+    /// Optional image URL associated with the wrap.
     pub image_url: Option<String>,
 }
 
@@ -120,6 +144,8 @@ pub enum TimelockAction {
     SetWhitelistRoot(BytesN<32>),
     /// Change the timelock delay itself (seconds).
     SetTimelockDelay(u64),
+    /// Configure the bridge relayer set and threshold for a given chain.
+    SetBridgeRelayers(u32, BridgeRelayerSet),
 }
 
 /// A scheduled timelock operation awaiting execution.
@@ -161,6 +187,13 @@ pub struct InboundBridgeRecord {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BridgeRelayerSet {
+    pub relayers: soroban_sdk::Vec<BytesN<32>>,
+    pub threshold: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TransferFeeConfig {
     /// Amount of `token` charged to the sender for each successful transfer.
     pub amount: i128,
@@ -196,7 +229,8 @@ pub enum DataKey {
     MigrationVersion,
     /// Stores a list of periods a user has minted wraps for.
     UserPeriods(Address),
-    /// Stores the total number of successful wrap mints across all users.
+    /// Total number of wraps ever minted across all users (lifetime counter).
+    /// This is intentionally NOT decremented on `revoke_wrap` or `burn_wrap`.
     TotalWrapCount,
     /// Stores the total number of wrap records revoked on-chain.
     TotalRevoked,
@@ -237,8 +271,8 @@ pub enum DataKey {
     /// Ids of every currently scheduled timelock operation (instance-level).
     TimelockOps,
     // Token Bridge storage keys:
-    /// Address authorized as the cross-chain token bridge relayer.
-    BridgeRelayer,
+    /// Authorized relayer set (pubkeys) and threshold for a given source chain.
+    BridgeRelayerSet(u32),
     /// Status (enabled/disabled) of a supported target/source chain ID.
     BridgeChainStatus(u32),
     /// Current outbound bridge request sequence counter.
