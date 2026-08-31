@@ -19,6 +19,8 @@
 
 #![no_std]
 
+extern crate alloc;
+
 #[cfg(any(test, feature = "testutils"))]
 extern crate std;
 
@@ -566,6 +568,11 @@ impl StellarWrapContract {
         bridge::set_bridge_relayers(&e, chain_id, relayers, threshold);
     }
 
+    /// Admin: Set the legacy single bridge relayer address (for refund auth).
+    pub fn set_bridge_relayer(e: Env, relayer: Address) {
+        bridge::set_bridge_relayer(&e, relayer);
+    }
+
     /// Returns the configured cross-chain token bridge relayers for a given chain.
     pub fn get_bridge_relayers(e: Env, chain_id: u32) -> Option<storage_types::BridgeRelayerSet> {
         bridge::get_bridge_relayers(&e, chain_id)
@@ -793,6 +800,8 @@ mod balance_of_test;
 mod bridge_test;
 #[cfg(test)]
 mod expiration_test;
+#[cfg(test)]
+mod governance_test;
 #[cfg(test)]
 mod last_updated_test;
 #[cfg(test)]

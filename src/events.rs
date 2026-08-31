@@ -15,110 +15,211 @@ use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env, Symbol};
 use crate::storage_types::{StakeConfig, WrapState};
 
 /// All events emitted by the contract.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+///
+/// This enum is used for type-safe event publishing via [`publish_event`].
+/// Each variant maps to a `(domain, action)` pair and carries the data fields
+/// that are published as the event payload.
 pub enum Event {
     // Admin
-    AdminInit { admin: Address },
-    AdminUpdated { old_admin: Address, new_admin: Address },
-    AdminPause { paused: bool },
-    AdminFeeUpdated { token: Address, recipient: Address, amount: i128 },
+    AdminInit(Address),
+    AdminUpdated(Address, Address),
+    AdminPause(bool),
+    AdminFeeUpdated(Address, Address, i128),
     AdminFeeCleared,
-    AdminUpgrade { version: u32, wasm_hash: BytesN<32> },
+    AdminUpgrade(u32, BytesN<32>),
 
     // Bridge
-    BridgeOut { user: Address, destination_chain: u32, nonce: u64, recipient_address: BytesN<32>, period: u64 },
-    BridgeRefund { user: Address, period: u64, nonce: u64 },
-    BridgeInRej { recipient: Address, source_chain: u32, nonce: u64, period: u64 },
-    BridgeIn { recipient: Address, source_chain: u32, nonce: u64, period: u64 },
+    BridgeOut(Address, u32, u64, BytesN<32>, u64),
+    BridgeRefund(Address, u64, u64),
+    BridgeInRej(Address, u32, u64, u64),
+    BridgeIn(Address, u32, u64, u64),
 
     // Burn
-    Burn { user: Address, period: u64 },
+    Burn(Address, u64),
 
     // Governance
-    GovPropose { id: u64, proposer: Address, proposed_admin: Address },
-    GovVote { id: u64, voter: Address, support: bool },
-    GovExecuted { id: u64, new_admin: Address },
-    GovDefeated { id: u64 },
-    GovCancelled { id: u64, caller: Address },
+    GovPropose(u64, Address, Address),
+    GovVote(u64, Address, bool),
+    GovExecuted(u64, Address),
+    GovDefeated(u64),
+    GovCancelled(u64, Address),
 
     // Merkle
-    WhitelistRoot { root: BytesN<32> },
+    WhitelistRoot(BytesN<32>),
     WhitelistCleared,
 
     // Mint
-    Mint { user: Address, period: u64, archetype: Symbol },
-    MintTransition { user: Address, period: u64, state: WrapState },
-    MintExpire { user: Address, period: u64 },
+    Mint(Address, u64, Symbol),
+    MintTransition(Address, u64, WrapState),
+    MintExpire(Address, u64),
 
     // Revoke
-    Revoke { user: Address, period: u64, reason_hash: BytesN<32> },
+    Revoke(Address, u64, BytesN<32>),
 
     // Stake
-    StakeAdd { user: Address, amount: i128 },
-    StakeInit { user: Address, amount: i128 },
-    StakeUnstake { user: Address, amount: i128 },
-    StakeWithdraw { user: Address, withdrawn: i128 },
-    StakeConfig { config: StakeConfig },
+    StakeAdd(Address, i128),
+    StakeInit(Address, i128),
+    StakeUnstake(Address, i128),
+    StakeWithdraw(Address, i128),
+    StakeConfig(StakeConfig),
 
     // Timelock
-    TimelockEnabled { delay: u64 },
-    TimelockSched { id: BytesN<32>, eta: u64 },
-    TimelockCancel { id: BytesN<32> },
-    TimelockUpgrade { wasm_hash: BytesN<32> },
-    TimelockExec { id: BytesN<32> },
+    TimelockEnabled(u64),
+    TimelockSched(BytesN<32>, u64),
+    TimelockCancel(BytesN<32>),
+    TimelockUpgrade(BytesN<32>),
+    TimelockExec(BytesN<32>),
 
     // Transfer
-    TransferBackfill { user: Address, count: u32 },
-    Transfer { from: Address, to: Address, period: u64, fee: Option<(Address, Address, i128)> },
+    TransferBackfill(Address, u32),
+    Transfer(Address, Address, u64, Option<(Address, Address, i128)>),
+}
+
+/// Mint event types for the legacy event format used by mint.rs and bridge.rs.
+pub(crate) enum MintEventType {
+    Mint,
+    Transition,
+    Expire,
+}
+
+impl MintEventType {
+    pub fn to_symbol(&self, _e: &Env) -> Symbol {
+        match self {
+            MintEventType::Mint => symbol_short!("Mint"),
+            MintEventType::Transition => symbol_short!("Transit"),
+            MintEventType::Expire => symbol_short!("Expire"),
+        }
+    }
+}
+
+/// Data payload for legacy mint events.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub(crate) enum MintEventData {
+    Mint(Address, u64, Symbol),
+    Transition(Address, u64, WrapState),
+    Expire(Address, u64),
 }
 
 /// Strongly typed event publisher.
+///
+/// Destructures each [`Event`] variant and publishes the data as a tuple,
+/// avoiding the need for `#[contracttype]` on the `Event` enum (which would
+/// fail for variants containing complex nested types like `Option<(…)>`).
+#[allow(deprecated)]
 pub fn publish_event(e: &Env, event: Event) {
     let v1 = symbol_short!("v1");
-    match event.clone() {
-        Event::AdminInit { .. } => e.events().publish((v1, symbol_short!("admin"), symbol_short!("init")), event),
-        Event::AdminUpdated { .. } => e.events().publish((v1, symbol_short!("admin"), symbol_short!("updated")), event),
-        Event::AdminPause { .. } => e.events().publish((v1, symbol_short!("admin"), symbol_short!("pause")), event),
-        Event::AdminFeeUpdated { .. } => e.events().publish((v1, symbol_short!("admin"), symbol_short!("fee")), event),
-        Event::AdminFeeCleared => e.events().publish((v1, symbol_short!("admin"), symbol_short!("fee_clr")), event),
-        Event::AdminUpgrade { .. } => e.events().publish((v1, symbol_short!("admin"), symbol_short!("upgrade")), event),
-        
-        Event::BridgeOut { .. } => e.events().publish((v1, symbol_short!("bridge"), symbol_short!("out")), event),
-        Event::BridgeRefund { .. } => e.events().publish((v1, symbol_short!("bridge"), symbol_short!("refund")), event),
-        Event::BridgeInRej { .. } => e.events().publish((v1, symbol_short!("bridge"), symbol_short!("in_rej")), event),
-        Event::BridgeIn { .. } => e.events().publish((v1, symbol_short!("bridge"), symbol_short!("in")), event),
+    match event {
+        Event::AdminInit(admin) => {
+            e.events().publish((v1, symbol_short!("admin"), symbol_short!("init")), admin);
+        }
+        Event::AdminUpdated(old, new) => {
+            e.events().publish((v1, symbol_short!("admin"), symbol_short!("updated")), (old, new));
+        }
+        Event::AdminPause(paused) => {
+            e.events().publish((v1, symbol_short!("admin"), symbol_short!("pause")), paused);
+        }
+        Event::AdminFeeUpdated(token, recipient, amount) => {
+            e.events().publish((v1, symbol_short!("admin"), symbol_short!("fee")), (token, recipient, amount));
+        }
+        Event::AdminFeeCleared => {
+            e.events().publish((v1, symbol_short!("admin"), symbol_short!("fee_clr")), ());
+        }
+        Event::AdminUpgrade(version, wasm_hash) => {
+            e.events().publish((v1, symbol_short!("admin"), symbol_short!("upgrade")), (version, wasm_hash));
+        }
 
-        Event::Burn { .. } => e.events().publish((v1, symbol_short!("wrap"), symbol_short!("burn")), event),
-        
-        Event::GovPropose { .. } => e.events().publish((v1, symbol_short!("gov"), symbol_short!("propose")), event),
-        Event::GovVote { .. } => e.events().publish((v1, symbol_short!("gov"), symbol_short!("vote")), event),
-        Event::GovExecuted { .. } => e.events().publish((v1, symbol_short!("gov"), symbol_short!("executed")), event),
-        Event::GovDefeated { .. } => e.events().publish((v1, symbol_short!("gov"), symbol_short!("defeated")), event),
-        Event::GovCancelled { .. } => e.events().publish((v1, symbol_short!("gov"), symbol_short!("cancelled")), event),
+        Event::BridgeOut(user, chain, nonce, addr, period) => {
+            e.events().publish((v1, symbol_short!("bridge"), symbol_short!("out")), (user, chain, nonce, addr, period));
+        }
+        Event::BridgeRefund(user, period, nonce) => {
+            e.events().publish((v1, symbol_short!("bridge"), symbol_short!("refund")), (user, period, nonce));
+        }
+        Event::BridgeInRej(recipient, chain, nonce, period) => {
+            e.events().publish((v1, symbol_short!("bridge"), symbol_short!("in_rej")), (recipient, chain, nonce, period));
+        }
+        Event::BridgeIn(recipient, chain, nonce, period) => {
+            e.events().publish((v1, symbol_short!("bridge"), symbol_short!("in")), (recipient, chain, nonce, period));
+        }
 
-        Event::WhitelistRoot { .. } => e.events().publish((v1, symbol_short!("whitelist"), symbol_short!("root")), event),
-        Event::WhitelistCleared => e.events().publish((v1, symbol_short!("whitelist"), symbol_short!("cleared")), event),
+        Event::Burn(user, period) => {
+            e.events().publish((v1, symbol_short!("wrap"), symbol_short!("burn")), (user, period));
+        }
 
-        Event::Mint { .. } => e.events().publish((v1, symbol_short!("wrap"), symbol_short!("mint")), event),
-        Event::MintTransition { .. } => e.events().publish((v1, symbol_short!("wrap"), symbol_short!("trans")), event),
-        Event::MintExpire { .. } => e.events().publish((v1, symbol_short!("wrap"), symbol_short!("expire")), event),
-        
-        Event::Revoke { .. } => e.events().publish((v1, symbol_short!("wrap"), symbol_short!("revoke")), event),
+        Event::GovPropose(id, proposer, proposed) => {
+            e.events().publish((v1, symbol_short!("gov"), symbol_short!("propose")), (id, proposer, proposed));
+        }
+        Event::GovVote(id, voter, support) => {
+            e.events().publish((v1, symbol_short!("gov"), symbol_short!("vote")), (id, voter, support));
+        }
+        Event::GovExecuted(id, new_admin) => {
+            e.events().publish((v1, symbol_short!("gov"), symbol_short!("executed")), (id, new_admin));
+        }
+        Event::GovDefeated(id) => {
+            e.events().publish((v1, symbol_short!("gov"), symbol_short!("defeated")), id);
+        }
+        Event::GovCancelled(id, caller) => {
+            e.events().publish((v1, symbol_short!("gov"), symbol_short!("cancelled")), (id, caller));
+        }
 
-        Event::StakeAdd { .. } => e.events().publish((v1, symbol_short!("stake"), symbol_short!("add")), event),
-        Event::StakeInit { .. } => e.events().publish((v1, symbol_short!("stake"), symbol_short!("init")), event),
-        Event::StakeUnstake { .. } => e.events().publish((v1, symbol_short!("stake"), symbol_short!("unstake")), event),
-        Event::StakeWithdraw { .. } => e.events().publish((v1, symbol_short!("stake"), symbol_short!("withdraw")), event),
-        Event::StakeConfig { .. } => e.events().publish((v1, symbol_short!("stake"), symbol_short!("cfg")), event),
+        Event::WhitelistRoot(root) => {
+            e.events().publish((v1, symbol_short!("whitelist"), symbol_short!("root")), root);
+        }
+        Event::WhitelistCleared => {
+            e.events().publish((v1, symbol_short!("whitelist"), symbol_short!("cleared")), ());
+        }
 
-        Event::TimelockEnabled { .. } => e.events().publish((v1, symbol_short!("timelock"), symbol_short!("enabled")), event),
-        Event::TimelockSched { .. } => e.events().publish((v1, symbol_short!("timelock"), symbol_short!("sched")), event),
-        Event::TimelockCancel { .. } => e.events().publish((v1, symbol_short!("timelock"), symbol_short!("cancel")), event),
-        Event::TimelockUpgrade { .. } => e.events().publish((v1, symbol_short!("timelock"), symbol_short!("upgrade")), event),
-        Event::TimelockExec { .. } => e.events().publish((v1, symbol_short!("timelock"), symbol_short!("exec")), event),
+        Event::Mint(user, period, archetype) => {
+            e.events().publish((v1, symbol_short!("wrap"), symbol_short!("mint")), (user, period, archetype));
+        }
+        Event::MintTransition(user, period, state) => {
+            e.events().publish((v1, symbol_short!("wrap"), symbol_short!("trans")), (user, period, state));
+        }
+        Event::MintExpire(user, period) => {
+            e.events().publish((v1, symbol_short!("wrap"), symbol_short!("expire")), (user, period));
+        }
 
-        Event::TransferBackfill { .. } => e.events().publish((v1, symbol_short!("transfer"), symbol_short!("backfill")), event),
-        Event::Transfer { .. } => e.events().publish((v1, symbol_short!("transfer"), symbol_short!("transfer")), event),
+        Event::Revoke(user, period, reason) => {
+            e.events().publish((v1, symbol_short!("wrap"), symbol_short!("revoke")), (user, period, reason));
+        }
+
+        Event::StakeAdd(user, amount) => {
+            e.events().publish((v1, symbol_short!("stake"), symbol_short!("add")), (user, amount));
+        }
+        Event::StakeInit(user, amount) => {
+            e.events().publish((v1, symbol_short!("stake"), symbol_short!("init")), (user, amount));
+        }
+        Event::StakeUnstake(user, amount) => {
+            e.events().publish((v1, symbol_short!("stake"), symbol_short!("unstake")), (user, amount));
+        }
+        Event::StakeWithdraw(user, withdrawn) => {
+            e.events().publish((v1, symbol_short!("stake"), symbol_short!("withdraw")), (user, withdrawn));
+        }
+        Event::StakeConfig(config) => {
+            e.events().publish((v1, symbol_short!("stake"), symbol_short!("cfg")), config);
+        }
+
+        Event::TimelockEnabled(delay) => {
+            e.events().publish((v1, symbol_short!("timelock"), symbol_short!("enabled")), delay);
+        }
+        Event::TimelockSched(id, eta) => {
+            e.events().publish((v1, symbol_short!("timelock"), symbol_short!("sched")), (id, eta));
+        }
+        Event::TimelockCancel(id) => {
+            e.events().publish((v1, symbol_short!("timelock"), symbol_short!("cancel")), id);
+        }
+        Event::TimelockUpgrade(wasm_hash) => {
+            e.events().publish((v1, symbol_short!("timelock"), symbol_short!("upgrade")), wasm_hash);
+        }
+        Event::TimelockExec(id) => {
+            e.events().publish((v1, symbol_short!("timelock"), symbol_short!("exec")), id);
+        }
+
+        Event::TransferBackfill(user, count) => {
+            e.events().publish((v1, symbol_short!("transfer"), symbol_short!("backfill")), (user, count));
+        }
+        Event::Transfer(from, to, period, fee) => {
+            e.events().publish((v1, symbol_short!("transfer"), symbol_short!("transfer")), (from, to, period, fee));
+        }
     }
 }

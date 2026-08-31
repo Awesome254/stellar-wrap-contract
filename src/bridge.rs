@@ -8,8 +8,8 @@ use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
-/// Set the bridge relayer address. Requires admin authorization.
-pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+/// Set the bridge relayers and threshold for a given chain. Requires admin authorization.
+pub(crate) fn set_bridge_relayers(e: &Env, chain_id: u32, relayers: soroban_sdk::Vec<BytesN<32>>, threshold: u32) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
     if threshold == 0 || threshold > relayers.len() as u32 {
@@ -28,9 +28,13 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
         .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
 }
 
-/// Returns the configured bridge relayer set for a given chain, or None if not set.
-pub(crate) fn get_bridge_relayers(e: &Env, chain_id: u32) -> Option<BridgeRelayerSet> {
-    e.storage().instance().get(&DataKey::BridgeRelayerSet(chain_id))
+/// Set the bridge relayer address (legacy single-relayer API).
+/// Requires admin authorization. Stores the relayer for refund auth.
+pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+    let admin = crate::admin::read_admin(e);
+    admin.require_auth();
+    e.storage().instance().set(&DataKey::BridgeRelayer, &relayer);
+    e.storage().instance().extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
 }
 
 /// Enable or disable a cross-chain network chain ID. Requires admin authorization.
@@ -130,13 +134,12 @@ pub(crate) fn bridge_wrap_out(
 }
 
 /// Restore a bridged wrap when the destination chain rejects the transfer.
-/// Only the configured bridge relayer may call this operation.
+/// Only the admin may call this operation.
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
 
-    let relayer = get_bridge_relayer(&e)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
-    relayer.require_auth();
+    let admin = crate::admin::read_admin(&e);
+    admin.require_auth();
 
     let request_key = DataKey::OutboundBridgeRequest(outbound_nonce);
     let request: OutboundBridgeRequest = e
