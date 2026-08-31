@@ -4,14 +4,22 @@ use crate::storage_types::{
     BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord, WrapState,
 };
 use crate::signature::verify_inbound_bridge_signature;
+use crate::constants::TTL_ONE_YEAR;
 use crate::{storage_accounting, ContractError, DataKey};
 
-const TTL_ONE_YEAR: u32 = 17_280 * 365;
-
-/// Set the bridge relayer address. Requires admin authorization.
-pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+/// Set the bridge relayer set (pubkeys + threshold) for a given chain.
+/// Requires admin authorization.
+pub(crate) fn set_bridge_relayers(
+    e: &Env,
+    chain_id: u32,
+    relayers: soroban_sdk::Vec<BytesN<32>>,
+    threshold: u32,
+) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
+    if chain_id == 0 {
+        panic_with_error!(e, ContractError::InvalidChain);
+    }
     if threshold == 0 || threshold > relayers.len() as u32 {
         panic_with_error!(e, ContractError::InvalidThreshold);
     }
@@ -134,9 +142,9 @@ pub(crate) fn bridge_wrap_out(
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
 
-    let relayer = get_bridge_relayer(&e)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
-    relayer.require_auth();
+    // Only admin can authorize bridge refunds for now.
+    let admin = crate::admin::read_admin(&e);
+    admin.require_auth();
 
     let request_key = DataKey::OutboundBridgeRequest(outbound_nonce);
     let request: OutboundBridgeRequest = e
@@ -358,12 +366,8 @@ pub(crate) fn bridge_wrap_in(
         e.storage().persistent().set(&wrap_key, &existing_record);
 
         e.events().publish(
-            (
-                crate::events::MintEventType::Transition.to_symbol(&e),
-                recipient.clone(),
-                period,
-            ),
-            crate::events::MintEventData::Transition(recipient.clone(), period, WrapState::Active),
+            (symbol_short!("trans"), recipient.clone(), period),
+            (WrapState::Active,),
         );
     }
 

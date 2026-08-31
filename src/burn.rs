@@ -1,8 +1,7 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, Env, Vec};
 
+use crate::constants::TTL_ONE_YEAR;
 use crate::{ContractError, DataKey, WrapRecord, WrapState};
-
-const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
 /// Burns (permanently deletes) a wrap record owned by the caller.
 ///

@@ -9,6 +9,7 @@
 
 use soroban_sdk::{panic_with_error, symbol_short, xdr::ToXdr, Bytes, BytesN, Env, Vec};
 
+use crate::constants::TTL_ONE_YEAR;
 use crate::storage_types::{TimelockAction, TimelockOperation};
 use crate::{ContractError, DataKey};
 
@@ -18,10 +19,6 @@ pub const MIN_DELAY: u64 = 3_600;
 /// Largest delay the timelock accepts (30 days). Prevents bricking the contract
 /// with an effectively infinite delay.
 pub const MAX_DELAY: u64 = 30 * 24 * 3_600;
-
-/// Persistent TTL for scheduled operations (~1 year in ledgers), matching the
-/// TTL used for wrap records elsewhere in the contract.
-const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
 /// Returns the configured delay in seconds, or `None` while the timelock is
 /// disabled.

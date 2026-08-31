@@ -30,6 +30,7 @@ mod admin;
 mod alias;
 mod bridge;
 mod burn;
+mod constants;
 mod errors;
 mod events;
 mod governance;
@@ -285,24 +286,24 @@ impl StellarWrapContract {
     /// - `user`: The address whose storage entries will be extended.
     /// - `period`: The specific wrap period whose record TTL will be extended.
     pub fn extend_ttl(e: Env, user: Address, period: u64) {
+        use crate::constants::TTL_ONE_YEAR;
         let wrap_key = DataKey::Wrap(user.clone(), period);
-        let ttl = 17280 * 365; // ~1 year in ledgers
 
         if e.storage().persistent().has(&wrap_key) {
-            e.storage().persistent().extend_ttl(&wrap_key, ttl, ttl);
+            e.storage().persistent().extend_ttl(&wrap_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
         }
 
         let count_key = DataKey::WrapCount(user.clone());
         if e.storage().persistent().has(&count_key) {
-            e.storage().persistent().extend_ttl(&count_key, ttl, ttl);
+            e.storage().persistent().extend_ttl(&count_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
         }
 
         let latest_key = DataKey::LatestPeriod(user);
         if e.storage().persistent().has(&latest_key) {
-            e.storage().persistent().extend_ttl(&latest_key, ttl, ttl);
+            e.storage().persistent().extend_ttl(&latest_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
         }
 
-        e.storage().instance().extend_ttl(ttl, ttl);
+        e.storage().instance().extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
     }
 
     /// Admin-only function to extend TTL for all metadata keys associated with a user.
@@ -335,7 +336,7 @@ impl StellarWrapContract {
             .unwrap_or_else(|| panic_with_error!(e, ContractError::NotInitialized));
         admin.require_auth();
 
-        let ttl = 17280 * 365; // ~1 year in ledgers
+        let ttl = crate::constants::TTL_ONE_YEAR;
 
         let count_key = DataKey::WrapCount(user.clone());
         if e.storage().persistent().has(&count_key) {
@@ -405,11 +406,11 @@ impl StellarWrapContract {
     /// Set the caller's opt-out flag, preventing any future wraps from being
     /// minted for them. Only the user themselves can call this.
     pub fn opt_out(e: Env, user: Address) {
+        use crate::constants::TTL_ONE_YEAR;
         user.require_auth();
         let key = crate::storage_types::DataKey::OptOut(user);
-        let ttl = 17280 * 365; // ~1 year in ledgers
         e.storage().persistent().set(&key, &true);
-        e.storage().persistent().extend_ttl(&key, ttl, ttl);
+        e.storage().persistent().extend_ttl(&key, TTL_ONE_YEAR, TTL_ONE_YEAR);
     }
 
     /// Clear the caller's opt-out flag, allowing future wraps to be minted for
