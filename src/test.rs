@@ -2741,6 +2741,132 @@ fn make_batch_item(
     }
 }
 
+fn assert_batch_error(
+    result: &std::result::Result<(), std::boxed::Box<dyn std::any::Any + Send>>,
+    expected_code: u32,
+    message: &str,
+) {
+    let err = result
+        .as_ref()
+        .expect_err(message)
+        .downcast_ref::<std::string::String>()
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        err.contains(&format!("Error(Contract, #{})", expected_code)),
+        "{message}, got: {err}"
+    );
+}
+
+#[test]
+fn test_mint_wrap_batch_empty_fails() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[54u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let items = soroban_sdk::vec![&env];
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.mint_wrap_batch(&items, &None);
+    }));
+    assert_batch_error(
+        &result,
+        ContractError::BatchEmpty as u32,
+        "empty batch must fail",
+    );
+}
+
+#[test]
+fn test_mint_wrap_batch_max_size_succeeds() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[55u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let archetype = symbol_short!("arch");
+    let start_period = 202401u64;
+    let dummy_sig = BytesN::from_array(&env, &[0u8; 64]);
+    let mut items = soroban_sdk::vec![&env];
+    for i in 0..MAX_BATCH_SIZE {
+        let period = start_period + i as u64;
+        let data_hash = BytesN::from_array(&env, &[(i % 256) as u8; 32]);
+        items.push_back(crate::storage_types::BatchWrapItem {
+            user: user.clone(),
+            period,
+            archetype: archetype.clone(),
+            data_hash,
+            payload_version: 1,
+            signature: dummy_sig.clone(),
+        });
+    }
+
+    let agg_sig =
+        crate::test_utils::sign_batch_payload(&env, &signing_key, &contract_id, &items, 1);
+    client.mint_wrap_batch(&items, &Some(agg_sig));
+
+    assert_eq!(client.balance_of(&user), MAX_BATCH_SIZE as u32);
+    assert!(client.get_wrap(&user, &start_period).is_some());
+    assert!(client
+        .get_wrap(&user, &start_period + MAX_BATCH_SIZE as u64 - 1)
+        .is_some());
+}
+
+#[test]
+fn test_mint_wrap_batch_over_max_size_fails_before_signatures() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[56u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let archetype = symbol_short!("arch");
+    let start_period = 202401u64;
+    let dummy_sig = BytesN::from_array(&env, &[0u8; 64]);
+    let mut items = soroban_sdk::vec![&env];
+    for i in 0..=MAX_BATCH_SIZE {
+        let period = start_period + i as u64;
+        let data_hash = BytesN::from_array(&env, &[(i % 256) as u8; 32]);
+        items.push_back(crate::storage_types::BatchWrapItem {
+            user: user.clone(),
+            period,
+            archetype: archetype.clone(),
+            data_hash,
+            payload_version: 1,
+            signature: dummy_sig.clone(),
+        });
+    }
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.mint_wrap_batch(&items, &None);
+    }));
+    assert_batch_error(
+        &result,
+        ContractError::BatchTooLarge as u32,
+        "over-max batch must fail before signature verification",
+    );
+
+    assert!(client.get_wrap(&user, &start_period).is_none());
+    assert_eq!(client.balance_of(&user), 0);
+}
+
 /// Opt out user A, submit a batch [A, B] with individual signatures.
 /// The whole call must revert and B must have no wrap.
 #[test]
