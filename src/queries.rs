@@ -57,7 +57,11 @@ pub(crate) fn get_latest_wrap(e: Env, user: Address) -> Option<WrapRecord> {
         }
     }
 
-    // A revoked latest record clears the marker but leaves older periods intact.
+    // Fallback: Scan UserPeriods to find the latest wrap.
+    // This is kept as a legacy-data safety net in case LatestPeriod becomes stale
+    // due to corruption or migration issues. Under normal operation, LatestPeriod
+    // should always be recomputed correctly during revoke/burn, so this fallback
+    // should not be triggered.
     let periods: soroban_sdk::Vec<u64> = e
         .storage()
         .persistent()
