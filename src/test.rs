@@ -3,7 +3,7 @@
 extern crate std;
 
 use super::*;
-use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned};
+use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned, sign_batch_payload};
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{
     symbol_short,

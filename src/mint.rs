@@ -245,6 +245,20 @@ pub(crate) fn mint_wrap_batch(
         panic_with_error!(&e, ContractError::BatchTooLarge);
     }
 
+    // Check for duplicate (user, period) pairs within the batch before any storage writes.
+    {
+        let mut seen_pairs: soroban_sdk::Vec<(Address, u64)> = soroban_sdk::Vec::new(&e);
+        for item in items.iter() {
+            let pair = (item.user.clone(), item.period);
+            for seen in seen_pairs.iter() {
+                if seen.0 == pair.0 && seen.1 == pair.1 {
+                    panic_with_error!(&e, ContractError::DuplicateBatchEntry);
+                }
+            }
+            seen_pairs.push_back(pair);
+        }
+    }
+
     let admin_pubkey = get_admin_pubkey(&e);
     let contract_id = e.current_contract_address();
 

@@ -97,3 +97,21 @@ pub(crate) fn decode_events(env: &Env) -> std::vec::Vec<(std::vec::Vec<Val>, Val
 pub(crate) fn scval_to_val(env: &Env, scval: &ScVal) -> Val {
     scval.try_into_val(env).unwrap()
 }
+
+/// Signs a batch of wrap items using the aggregated batch signature scheme.
+#[allow(dead_code)]
+pub(crate) fn sign_batch_payload(
+    env: &Env,
+    signer: &SigningKey,
+    contract: &Address,
+    items: &soroban_sdk::Vec<crate::storage_types::BatchWrapItem>,
+) -> BytesN<64> {
+    let payload = crate::signature::construct_batch_mint_payload(env, contract, items, 1);
+
+    let mut out = [0u8; 512];
+    let len = payload.len() as usize;
+    payload.copy_into_slice(&mut out[..len]);
+
+    let signature = signer.sign(&out[..len]);
+    BytesN::from_array(env, &signature.to_bytes())
+}
