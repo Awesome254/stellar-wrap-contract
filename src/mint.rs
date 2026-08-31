@@ -30,6 +30,15 @@ fn validate_payload_version(e: &Env, version: u32) {
     }
 }
 
+/// Panics with [`ContractError::UserOptedOut`] if `user` has set the opt-out
+/// flag. Must be called inside a validation pass — before any state is written
+/// — so that a single opted-out item reverts the entire batch.
+fn require_not_opted_out(e: &Env, user: &Address) {
+    if e.storage().persistent().has(&DataKey::OptOut(user.clone())) {
+        panic_with_error!(e, ContractError::UserOptedOut);
+    }
+}
+
 fn get_admin_pubkey(e: &Env) -> BytesN<32> {
     e.storage()
         .instance()
