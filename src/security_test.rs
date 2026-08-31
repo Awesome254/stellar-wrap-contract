@@ -1045,8 +1045,15 @@ fn test_non_admin_cannot_cancel_proposal() {
 }
 
 /// Test 19: update_admin (Single-Step) Clears Pending Proposal - Backward Compatibility
-/// Verifies that the legacy single-step update_admin clears any pending proposal
-/// and successfully transfers admin rights.
+/// Regression test for pending admin clearing behavior.
+///
+/// Verifies that when update_admin is called while a PendingAdmin proposal exists:
+/// 1. The pending proposal is cleared (no orphaned state)
+/// 2. The newly assigned admin is correctly set
+/// 3. No stale pending-admin state remains after the transition
+///
+/// This hardening test locks down the current behavior before enhancing the
+/// event system to emit a distinct "pending proposal cleared" event.
 #[test]
 fn test_update_admin_clears_pending_proposal() {
     let env = Env::default();
@@ -1061,18 +1068,52 @@ fn test_update_admin_clears_pending_proposal() {
     client.initialize(&admin, &pubkey);
     env.mock_all_auths();
 
-    // Admin proposes a transfer
+    // === SETUP: Establish initial state with a pending proposal ===
     client.propose_admin(&proposed_admin);
-    assert_eq!(client.get_pending_admin().unwrap(), proposed_admin);
-    assert_eq!(client.get_admin().unwrap(), admin);
 
-    // Admin bypasses two-step flow using update_admin (legacy)
+    // BEFORE update_admin: Verify pending proposal exists
+    assert_eq!(client.get_pending_admin().unwrap(), proposed_admin,
+               "pending proposal should exist before update_admin");
+
+    // BEFORE update_admin: Verify current admin is unchanged
+    assert_eq!(client.get_admin().unwrap(), admin,
+               "current admin should be unchanged before update_admin");
+
+    // === ACTION: Bypass two-step flow using single-step update_admin ===
+    // This one-step call should clear any in-flight PendingAdmin proposal
     client.update_admin(&direct_new_admin);
 
-    // Verify direct_new_admin is now the admin
-    assert_eq!(client.get_admin().unwrap(), direct_new_admin);
-    // Verify pending proposal was cleared
-    assert!(client.get_pending_admin().is_none());
+    // === VERIFICATION: Verify all expected state changes ===
+
+    // 1. NEWLY ASSIGNED ADMIN IS CORRECT
+    assert_eq!(client.get_admin().unwrap(), direct_new_admin,
+               "admin should be updated to the new admin");
+
+    // 2. PENDING PROPOSAL IS CLEARED (no orphaned state)
+    assert!(client.get_pending_admin().is_none(),
+            "pending proposal should be cleared after update_admin");
+
+    // 3. NO STALE PENDING-ADMIN STATE REMAINS
+    // Verify by attempting to actually retrieve and confirm absence
+    let pending_after = client.get_pending_admin();
+    assert!(pending_after.is_none(),
+            "no stale pending-admin state should remain; storage should be clean");
+
+    // 4. VERIFY BYPASSED PROPOSED ADMIN CANNOT ACCEPT
+    // The proposed_admin who was bypassed should NOT be able to call accept_admin
+    // since there is no longer any pending proposal
+    let accept_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.accept_admin();
+    }));
+    assert!(accept_result.is_err(),
+            "accept_admin should fail when no pending proposal exists");
+
+    // 5. VERIFY NEW ADMIN CAN MAKE NEW PROPOSALS
+    // The new admin should be able to create a fresh proposal
+    let another_admin = Address::generate(&env);
+    client.propose_admin(&another_admin);
+    assert_eq!(client.get_pending_admin().unwrap(), another_admin,
+               "new admin should be able to propose a new transfer");
 }
 
 /// Test 20: get_pending_admin Returns None When No Proposal
