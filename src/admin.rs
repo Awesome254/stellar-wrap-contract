@@ -132,6 +132,26 @@ pub(crate) fn migration_version(e: &Env) -> u32 {
         .get(&DataKey::MigrationVersion)
         .unwrap_or(0)
 }
+/// Helper to apply an upgrade: bump version, emit event, update wasm.
+pub(crate) fn apply_upgrade(e: Env, wasm_hash: BytesN<32>) {
+    // Increment contract version
+    let next_version = e
+        .storage()
+        .instance()
+        .get(&DataKey::ContractVersion)
+        .unwrap_or(0)
+        + 1;
+    e.storage()
+        .instance()
+        .set(&DataKey::ContractVersion, &next_version);
+
+    // Emit upgrade event with version
+    e.events()
+        .publish((symbol_short!("upgrade"), next_version), wasm_hash.clone());
+
+    // Update contract wasm
+    e.deployer().update_current_contract_wasm(wasm_hash);
+}
 
 /// Immediate WASM upgrade.
 ///
@@ -148,25 +168,7 @@ pub(crate) fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
 
     current_admin.require_auth();
 
-    // Bump the contract version to track upgrade history
-    let next_version: u32 = e
-        .storage()
-        .instance()
-        .get(&DataKey::ContractVersion)
-        .unwrap_or(0)
-        + 1;
-    e.storage()
-        .instance()
-        .set(&DataKey::ContractVersion, &next_version);
-
-    // Emit audit event with the requested WASM hash and new version
-    e.events().publish(
-        (symbol_short!("upgrade"), next_version),
-        new_wasm_hash.clone(),
-    );
-
-    // Update the contract WASM with the provided hash
-    e.deployer().update_current_contract_wasm(new_wasm_hash);
+        crate::admin::apply_upgrade(e, new_wasm_hash);
 }
 
 /// Step one of the two-step handover. Also disabled by the timelock, since an
