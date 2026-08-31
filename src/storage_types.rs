@@ -227,7 +227,8 @@ pub enum DataKey {
     TransferGuard,
     /// Stores the highest storage migration version already applied.
     MigrationVersion,
-    /// Stores a list of periods a user has minted wraps for.
+    /// Stores the periods a user has minted, in insertion order. `get_wraps`
+    /// returns records in this order, not sorted by period.
     UserPeriods(Address),
     /// Stores the total number of successful wrap mints across all users.
     TotalWrapCount,
@@ -346,4 +347,126 @@ pub struct StakeRecord {
     pub staked_at: u64,
     /// Ledger timestamp when `unstake` was called, or 0 if not unstaking.
     pub unstaking_at: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::{vec, Env, Vec};
+
+    fn test_record(env: &Env, period: u64) -> WrapRecord {
+        WrapRecord {
+            timestamp: 0,
+            data_hash: BytesN::from_array(env, &[0u8; 32]),
+            archetype: Symbol::new(env, "test"),
+            period,
+            fsm: WrapLifecycleFSM::new(WrapState::Active, 0),
+            description: None,
+            image_url: None,
+        }
+    }
+
+    fn setup_user(env: &Env, periods: &[u64]) -> Address {
+        let user = Address::generate(env);
+        let mut stored_periods: Vec<u64> = Vec::new(env);
+        for &period in periods {
+            stored_periods.push_back(period);
+            env.storage().persistent().set(
+                &DataKey::Wrap(user.clone(), period),
+                &test_record(env, period),
+            );
+        }
+        env.storage()
+            .persistent()
+            .set(&DataKey::UserPeriods(user.clone()), &stored_periods);
+        user
+    }
+
+    fn get_wraps(env: &Env, user: Address, start: u32, limit: u32) -> Vec<WrapRecord> {
+        crate::storage::get_wraps(env, user, start, limit)
+    }
+
+    fn periods(env: &Env, records: &Vec<WrapRecord>) -> Vec<u64> {
+        let mut result = Vec::new(env);
+        for i in 0..records.len() {
+            result.push_back(records.get(i).unwrap().period);
+        }
+        result
+    }
+
+    #[test]
+    fn get_wraps_returns_all_five_in_user_periods_order() {
+        let env = Env::default();
+        let user = setup_user(&env, &[5, 1, 3, 2, 4]);
+
+        let records = get_wraps(&env, user.clone(), 0, 5);
+
+        assert_eq!(records.len(), 5);
+        assert_eq!(periods(&env, &records), vec![&env, 5u64, 1, 3, 2, 4]);
+    }
+
+    #[test]
+    fn get_wraps_zero_limit_returns_empty() {
+        let env = Env::default();
+        let user = setup_user(&env, &[1, 2, 3, 4, 5]);
+
+        let records = get_wraps(&env, user.clone(), 0, 0);
+
+        assert_eq!(records.len(), 0);
+    }
+
+    #[test]
+    fn get_wraps_start_at_or_after_len_returns_empty() {
+        for start in [5u32, 100] {
+            let env = Env::default();
+            let user = setup_user(&env, &[1, 2, 3, 4, 5]);
+
+            let records = get_wraps(&env, user.clone(), start, 5);
+
+            assert_eq!(records.len(), 0);
+        }
+    }
+
+    #[test]
+    fn get_wraps_oversized_page_returns_remaining_records() {
+        let env = Env::default();
+        let user = setup_user(&env, &[1, 2, 3, 4, 5]);
+
+        let records = get_wraps(&env, user.clone(), 3, 10);
+
+        assert_eq!(records.len(), 2);
+        assert_eq!(records.get(0).unwrap().period, 4);
+        assert_eq!(records.get(1).unwrap().period, 5);
+    }
+
+    #[test]
+    fn get_wraps_limit_u32_max_does_not_overflow() {
+        let env = Env::default();
+        let user = setup_user(&env, &[1, 2, 3, 4, 5]);
+
+        let records = get_wraps(&env, user.clone(), 0, u32::MAX);
+        assert_eq!(records.len(), 5);
+
+        // start + limit would overflow without saturating arithmetic.
+        let records = get_wraps(&env, user, 1, u32::MAX);
+        assert_eq!(records.len(), 4);
+    }
+
+    #[test]
+    fn get_wraps_revoked_middle_period_returns_short_page() {
+        let env = Env::default();
+        let user = setup_user(&env, &[1, 2, 3, 4, 5]);
+
+        // Revoking removes the Wrap record but leaves UserPeriods intact, so
+        // the page is short (4 instead of 5).
+        env.storage()
+            .persistent()
+            .remove(&DataKey::Wrap(user.clone(), 3));
+
+        let records = get_wraps(&env, user, 0, u32::MAX);
+
+        assert_eq!(records.len(), 4);
+        assert_eq!(periods(&env, &records), vec![&env, 1u64, 2, 4, 5]);
+    }
 }
