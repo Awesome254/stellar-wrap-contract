@@ -63,6 +63,34 @@ Returned by `health()`, reports:
 - `DataKey::LatestPeriod(Address)`
 - `DataKey::MigrationVersion`
 
+## Pause Functionality
+
+The contract implements an emergency pause mechanism (`pause` and `unpause`) to halt core token logic during an incident.
+
+The following table documents which state-mutating entrypoints honor the pause (revert with `ContractError::Paused`) and which remain callable. Read-only queries always remain callable.
+
+| Entrypoint | Honors Pause | Reason if callable while paused |
+| --- | --- | --- |
+| `mint_wrap` | Yes | - |
+| `mint_wrap_batch` | Yes | - |
+| `transfer_wrap` | Yes | - |
+| `backfill_wrap_periods` | Yes | - |
+| `transition_wrap_state` | Yes | - |
+| `expire_wrap` | Yes | - |
+| `stake` | Yes | - |
+| `unstake` | Yes | - |
+| `withdraw_stake` | Yes | - |
+| `bridge_wrap_out` | Yes | - |
+| `bridge_wrap_in` | Yes | - |
+| `initialize` | No | Setup function |
+| `update_admin` / `propose_admin` / `accept_admin` / `cancel_proposed_admin` | No | Required for emergency key rotation |
+| `pause` / `unpause` | No | Required to manage pause state |
+| `migrate` / `upgrade` | No | Required to deploy fixes |
+| `set_*` (config setters) | No | Administrative configuration |
+| `revoke_wrap` / `burn_wrap` | No | Administrative state correction |
+| `extend_ttl` / `renew_all_ttls` | No | Prevent state expiration during pause |
+| `opt_out` / `opt_in` / `set_alias_hash` | No | User preferences / metadata |
+
 ## Public interface
 
 ### Write methods
