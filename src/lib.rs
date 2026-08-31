@@ -812,4 +812,6 @@ mod test_vectors;
 #[cfg(test)]
 mod transfer_test;
 #[cfg(test)]
+mod optout_test;
+#[cfg(test)]
 mod queries_test;
