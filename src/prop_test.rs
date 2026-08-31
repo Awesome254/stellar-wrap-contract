@@ -8,7 +8,7 @@ use super::*;
 
 use ed25519_dalek::{Signer, SigningKey};
 use proptest::prelude::*;
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, Symbol};
+use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Symbol};
 
 use crate::merkle;
 use crate::mint::CURRENT_PAYLOAD_VERSION;
@@ -17,6 +17,10 @@ use crate::signature::construct_mint_payload;
 // ── Shared test constants ────────────────────────────────────────────────────
 
 const TEST_SIGNING_KEY_BYTES: [u8; 32] = [0xAB; 32];
+
+// Admin proposal duration bounds, mirroring the timelock delay bounds.
+const MIN_PROPOSAL_DURATION: u64 = 3600;
+const MAX_PROPOSAL_DURATION: u64 = 30 * 24 * 60 * 60;
 
 // ── Helper: allowed archetypes ────────────────────────────────────────────────
 
@@ -416,5 +420,55 @@ proptest! {
         if !addresses.contains(&non_member) {
             prop_assert!(!client.verify_whitelist(&non_member, &proof));
         }
+    }
+}
+
+proptest! {
+    #[test]
+    fn prop_invalid_proposal_duration_is_rejected(
+        duration in prop_oneof![
+            Just(0u64),
+            Just(MIN_PROPOSAL_DURATION - 1),
+            Just(MAX_PROPOSAL_DURATION + 1),
+            Just(u64::MAX),
+        ],
+    ) {
+        let (env, client, _, _, _) = setup_env();
+        let title = String::from_str(&env, "proposal");
+        let description = String::from_str(&env, "duration bounds");
+        let data_hash = make_data_hash(&env, [0x42; 32]);
+
+        let result = client.try_create_admin_proposal(
+            &title,
+            &description,
+            &data_hash,
+            &duration,
+        );
+
+        prop_assert!(result.is_err());
+    }
+}
+
+proptest! {
+    #[test]
+    fn prop_boundary_proposal_durations_are_accepted(
+        duration in prop_oneof![
+            Just(MIN_PROPOSAL_DURATION),
+            Just(MAX_PROPOSAL_DURATION),
+        ],
+    ) {
+        let (env, client, _, _, _) = setup_env();
+        let title = String::from_str(&env, "proposal");
+        let description = String::from_str(&env, "duration bounds");
+        let data_hash = make_data_hash(&env, [0x43; 32]);
+
+        let result = client.try_create_admin_proposal(
+            &title,
+            &description,
+            &data_hash,
+            &duration,
+        );
+
+        prop_assert!(result.is_ok());
     }
 }
