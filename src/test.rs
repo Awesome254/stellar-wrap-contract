@@ -269,6 +269,27 @@ fn test_initialize_twice_fails() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")]
+fn test_initialize_twice_with_different_admin_fails() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    // First initialization.
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[1u8; 32]);
+    env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
+
+    // Second call uses a completely different admin and pubkey — the guard
+    // should still reject it with AlreadyInitialized, proving initialize()
+    // can't be used to silently take over an already-configured contract.
+    let other_admin = Address::generate(&env);
+    let other_pubkey = BytesN::from_array(&env, &[2u8; 32]);
+    client.initialize(&other_admin, &other_pubkey);
+}
+
+#[test]
 #[should_panic]
 fn test_initialize_without_admin_auth_fails() {
     let env = Env::default();
