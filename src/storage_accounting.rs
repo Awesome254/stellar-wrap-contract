@@ -57,11 +57,20 @@ pub(crate) fn get_fee_params(e: &Env) -> FeeParams {
 pub(crate) fn set_fee_params(e: &Env, params: FeeParams) {
     // enforce admin
     crate::admin::read_admin(e).require_auth();
-    // basic validation
+    // validation: scale_step_kib must be non-zero (division by zero in fee computation)
     if params.scale_step_kib == 0 {
         panic_with_error!(e, ContractError::InvalidFeeParams);
     }
+    // validation: fees must be non-negative
+    if params.base_fee < 0 || params.per_kib_fee < 0 {
+        panic_with_error!(e, ContractError::InvalidFeeParams);
+    }
+    // validation: max_fee must be at least as large as base_fee
+    if params.max_fee < params.base_fee {
+        panic_with_error!(e, ContractError::InvalidFeeParams);
+    }
     e.storage().instance().set(&DataKey::FeeParams, &params);
+    crate::events::publish_event(e, crate::events::Event::FeeParamsUpdated { params });
 }
 
 /// Compute the current fee according to the params and current storage bytes.

@@ -12,7 +12,7 @@
 
 use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env, Symbol};
 
-use crate::storage_types::{StakeConfig, WrapState};
+use crate::storage_types::{FeeParams, StakeConfig, WrapState};
 
 /// All events emitted by the contract.
 #[contracttype]
@@ -25,6 +25,8 @@ pub enum Event {
     AdminFeeUpdated { token: Address, recipient: Address, amount: i128 },
     AdminFeeCleared,
     AdminUpgrade { version: u32, wasm_hash: BytesN<32> },
+    /// Emitted when the algorithmic fee parameters are updated via `set_fee_params`.
+    FeeParamsUpdated { params: FeeParams },
 
     // Bridge
     BridgeOut { user: Address, destination_chain: u32, nonce: u64, recipient_address: BytesN<32>, period: u64 },
@@ -83,6 +85,7 @@ pub fn publish_event(e: &Env, event: Event) {
         Event::AdminFeeUpdated { .. } => e.events().publish((v1, symbol_short!("admin"), symbol_short!("fee")), event),
         Event::AdminFeeCleared => e.events().publish((v1, symbol_short!("admin"), symbol_short!("fee_clr")), event),
         Event::AdminUpgrade { .. } => e.events().publish((v1, symbol_short!("admin"), symbol_short!("upgrade")), event),
+        Event::FeeParamsUpdated { .. } => e.events().publish((v1, symbol_short!("admin"), symbol_short!("fee_par")), event),
         
         Event::BridgeOut { .. } => e.events().publish((v1, symbol_short!("bridge"), symbol_short!("out")), event),
         Event::BridgeRefund { .. } => e.events().publish((v1, symbol_short!("bridge"), symbol_short!("refund")), event),
