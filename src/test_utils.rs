@@ -1,6 +1,7 @@
 #![cfg(test)]
 #![allow(dead_code)]
 
+use alloc::vec;
 use ed25519_dalek::{Signer, SigningKey};
 use soroban_sdk::testutils::Events;
 use soroban_sdk::xdr::{ContractEventBody, ScVal};
@@ -43,6 +44,7 @@ pub(crate) fn sign_payload_versioned(
         payload_version,
     );
 
+    let len = payload.len() as usize;
     let mut out = vec![0u8; len];
     payload.copy_into_slice(&mut out);
 

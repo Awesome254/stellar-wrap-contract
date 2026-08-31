@@ -8,8 +8,29 @@ use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
-/// Set the bridge relayer address. Requires admin authorization.
+/// Set the sole bridge relayer address used to authorize bridge refunds.
+/// Requires admin authorization.
 pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+    let admin = crate::admin::read_admin(e);
+    admin.require_auth();
+    e.storage().instance().set(&DataKey::BridgeRelayer, &relayer);
+    e.storage()
+        .instance()
+        .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
+}
+
+/// Returns the configured sole bridge relayer address, or None if not set.
+pub(crate) fn get_bridge_relayer(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::BridgeRelayer)
+}
+
+/// Configure the bridge relayer set and threshold for a given chain. Requires admin authorization.
+pub(crate) fn set_bridge_relayers(
+    e: &Env,
+    chain_id: u32,
+    relayers: soroban_sdk::Vec<BytesN<32>>,
+    threshold: u32,
+) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
     if threshold == 0 || threshold > relayers.len() as u32 {

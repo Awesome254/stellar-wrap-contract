@@ -1,5 +1,6 @@
 #![cfg(test)]
 
+use alloc::string::ToString;
 use crate::{StellarWrapContract, StellarWrapContractClient};
 use crate::test_utils::sign_payload;
 use ed25519_dalek::SigningKey;
@@ -56,7 +57,7 @@ fn test_version_format() {
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     // Get the version returned by the contract
-    let version_str: alloc::string::String = client.version().into();
+    let version_str: alloc::string::String = client.version().to_string();
     
     // Check if it matches major.minor.patch
     let parts: std::vec::Vec<&str> = version_str.split('.').collect();

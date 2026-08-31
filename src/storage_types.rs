@@ -270,6 +270,8 @@ pub enum DataKey {
     /// Ids of every currently scheduled timelock operation (instance-level).
     TimelockOps,
     // Token Bridge storage keys:
+    /// Sole authorized relayer address for bridge refunds (legacy single-relayer).
+    BridgeRelayer,
     /// Authorized relayer set (pubkeys) and threshold for a given source chain.
     BridgeRelayerSet(u32),
     /// Status (enabled/disabled) of a supported target/source chain ID.
