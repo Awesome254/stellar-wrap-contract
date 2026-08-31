@@ -105,6 +105,14 @@ pub(crate) fn mint_wrap(
 ) {
     crate::admin::require_not_paused(&e);
     user.require_auth();
+    // Reentrancy guard: ensure no nested mint for the same user is in progress.
+    if e.storage().temporary().has(&DataKey::MintGuard(user.clone())) {
+        panic_with_error!(e, ContractError::TransferInProgress);
+    }
+    // Set the temporary guard; temporary storage is transaction-scoped and
+    // will be cleared automatically on panic. We also remove it explicitly
+    // on the success path so within-transaction inspection sees a clean state.
+    e.storage().temporary().set(&DataKey::MintGuard(user.clone()), &true);
 
     // Reject minting for users who have explicitly opted out.
     require_not_opted_out(&e, &user);
@@ -222,6 +230,10 @@ pub(crate) fn mint_wrap(
     }
 
     update_last_updated(&e, &user);
+
+    // Clear the temporary guard so within-transaction inspection observes a
+    // clean state immediately after a successful mint.
+    e.storage().temporary().remove(&DataKey::MintGuard(user.clone()));
 
     e.events().publish(
         (MintEventType::Mint.to_symbol(&e), user.clone(), period),
