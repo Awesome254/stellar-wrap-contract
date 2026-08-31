@@ -2717,3 +2717,159 @@ fn test_update_latest_period_option_storage_accounting() {
         env.as_contract(&contract_id, || env.storage().persistent().get(&latest_key));
     assert_eq!(unchanged_period, Some(10));
 }
+
+#[test]
+fn test_extend_ttl_on_nonexistent_wrap_is_noop() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[1u8; 32]);
+    env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
+
+    let user = Address::generate(&env);
+
+    // No wrap was ever minted for this user/period — must not panic and
+    // must not create any state.
+    client.extend_ttl(&user, &202401);
+
+    assert!(client.get_wrap(&user, &202401).is_none());
+    assert_eq!(client.balance_of(&user), 0);
+}
+
+#[test]
+fn test_extend_ttl_after_revoke_is_noop() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[21u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let period = 202401u64;
+    let archetype = symbol_short!("arch");
+    let hash = BytesN::from_array(&env, &[9u8; 32]);
+    let signature = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period,
+        &archetype,
+        &hash,
+    );
+    client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &signature);
+    assert!(client.get_wrap(&user, &period).is_some());
+
+    let reason = BytesN::from_array(&env, &[0u8; 32]);
+    client.revoke_wrap(&user, &period, &reason);
+    assert!(client.get_wrap(&user, &period).is_none());
+
+    // The underlying wrap entry is gone — extend_ttl must be a safe no-op.
+    // It must neither panic nor resurrect the revoked record.
+    client.extend_ttl(&user, &period);
+    assert!(client.get_wrap(&user, &period).is_none());
+}
+
+#[test]
+fn test_extend_ttl_repeated_calls_no_side_effects() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[22u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let period = 202401u64;
+    let archetype = symbol_short!("arch");
+    let hash = BytesN::from_array(&env, &[3u8; 32]);
+    let signature = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period,
+        &archetype,
+        &hash,
+    );
+    client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &signature);
+
+    let record_before = client.get_wrap(&user, &period).unwrap();
+    let balance_before = client.balance_of(&user);
+
+    // Anyone can call extend_ttl repeatedly — it must be idempotent, with
+    // no cumulative drift in the stored record or the user's balance.
+    for _ in 0..5 {
+        client.extend_ttl(&user, &period);
+    }
+
+    let record_after = client.get_wrap(&user, &period).unwrap();
+    assert_eq!(record_before, record_after);
+    assert_eq!(client.balance_of(&user), balance_before);
+}
+
+#[test]
+fn test_extend_ttl_skips_terminal_wrap_state() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[23u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let period = 202401u64;
+    let archetype = symbol_short!("arch");
+    let hash = BytesN::from_array(&env, &[5u8; 32]);
+    let signature = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period,
+        &archetype,
+        &hash,
+    );
+    client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &signature);
+
+    // Active -> Archived is a valid FSM transition; the wrap is now terminal.
+    client.transition_wrap_state(&user, &period, &WrapState::Archived);
+
+    let wrap_key = DataKey::Wrap(user.clone(), period);
+    let ttl_before = env.as_contract(&contract_id, || {
+        env.storage().persistent().get_ttl(&wrap_key)
+    });
+
+    // Advance the ledger so a real re-extension would be observable.
+    env.ledger().with_mut(|l| {
+        l.sequence_number += 1_000;
+    });
+
+    // Anyone can still call extend_ttl on this (user, period) — it must not
+    // reset the TTL of a terminal-state (Archived/Expired/Cancelled) wrap.
+    client.extend_ttl(&user, &period);
+
+    let ttl_after = env.as_contract(&contract_id, || {
+        env.storage().persistent().get_ttl(&wrap_key)
+    });
+
+    // TTL only decayed with the ledger advance — it was not bumped back up
+    // to a fresh ~1 year, proving the terminal-state guard worked.
+    assert!(ttl_after < ttl_before);
+}

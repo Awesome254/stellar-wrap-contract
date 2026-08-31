@@ -284,12 +284,31 @@ impl StellarWrapContract {
     /// # Parameters
     /// - `user`: The address whose storage entries will be extended.
     /// - `period`: The specific wrap period whose record TTL will be extended.
+    ///
+    /// # Security (Issue #124)
+    /// This function is intentionally callable by anyone with no `require_auth`,
+    /// so off-chain renewal bots can keep active users' data alive without
+    /// needing a signing key. To stop that openness from being abused to keep
+    /// logically-dead records around forever (defeating the expiry mechanism
+    /// in #95), the individual wrap record's TTL is only extended while it is
+    /// in a non-terminal `WrapState` (`Draft`, `Pending`, `Active`, `Bridged`).
+    /// Wraps that have transitioned to `Cancelled`, `Expired`, or `Archived`
+    /// are skipped so their ledger entries can be naturally archived instead
+    /// of being kept alive indefinitely at no cost to the caller beyond the
+    /// call's own resource fee.
     pub fn extend_ttl(e: Env, user: Address, period: u64) {
         let wrap_key = DataKey::Wrap(user.clone(), period);
         let ttl = 17280 * 365; // ~1 year in ledgers
 
-        if e.storage().persistent().has(&wrap_key) {
-            e.storage().persistent().extend_ttl(&wrap_key, ttl, ttl);
+        let existing_record: Option<WrapRecord> = e.storage().persistent().get(&wrap_key);
+        if let Some(record) = existing_record {
+            let is_terminal = matches!(
+                record.fsm.state,
+                WrapState::Cancelled | WrapState::Expired | WrapState::Archived
+            );
+            if !is_terminal {
+                e.storage().persistent().extend_ttl(&wrap_key, ttl, ttl);
+            }
         }
 
         let count_key = DataKey::WrapCount(user.clone());
