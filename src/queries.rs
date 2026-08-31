@@ -1,4 +1,4 @@
-use crate::{ContractHealth, DataKey, TransferFeeConfig, WrapRecord};
+use crate::{ContractHealth, DataKey, TransferFeeConfig, WrapRecord, InvariantReport};
 use soroban_sdk::{Address, Bytes, BytesN, Env, String};
 
 pub(crate) fn get_wrap(e: Env, user: Address, period: u64) -> Option<WrapRecord> {
@@ -198,4 +198,57 @@ pub(crate) fn contract_version(e: Env) -> u32 {
         .instance()
         .get(&DataKey::ContractVersion)
         .unwrap_or(0)
+}
+
+pub const MAX_QUERY_RESULTS: u32 = 100;
+
+pub(crate) fn check_user_invariants(e: Env, user: Address) -> InvariantReport {
+    let wrap_count: u32 = e
+        .storage()
+        .persistent()
+        .get(&DataKey::WrapCount(user.clone()))
+        .unwrap_or(0);
+
+    let user_periods: soroban_sdk::Vec<u64> = e
+        .storage()
+        .persistent()
+        .get(&DataKey::UserPeriods(user.clone()))
+        .unwrap_or_else(|| soroban_sdk::Vec::new(&e));
+    let user_periods_len = user_periods.len();
+
+    let wrap_periods: soroban_sdk::Vec<u64> = e
+        .storage()
+        .persistent()
+        .get(&DataKey::WrapPeriods(user.clone()))
+        .unwrap_or_else(|| soroban_sdk::Vec::new(&e));
+    let wrap_periods_len = wrap_periods.len();
+
+    let latest_period: Option<u64> = e
+        .storage()
+        .persistent()
+        .get(&DataKey::LatestPeriod(user.clone()));
+
+    let mut max_user_period: Option<u64> = None;
+    let mut live_wraps_found = 0;
+
+    let scan_len = core::cmp::min(user_periods_len, MAX_QUERY_RESULTS);
+    for i in 0..scan_len {
+        if let Some(p) = user_periods.get(i) {
+            max_user_period = Some(core::cmp::max(max_user_period.unwrap_or(0), p));
+            if e.storage().persistent().has(&DataKey::Wrap(user.clone(), p)) {
+                live_wraps_found += 1;
+            }
+        }
+    }
+
+    let all_user_periods_live = if scan_len > 0 {
+        live_wraps_found == scan_len
+    } else {
+        true
+    };
+        latest_period,
+        max_user_period,
+        live_wraps_found,
+        balance,
+    }
 }
