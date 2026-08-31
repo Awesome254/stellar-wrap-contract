@@ -56,6 +56,9 @@ pub use storage_types::{
 };
 pub use token::TokenInterface;
 
+const MAX_WRAP_DESCRIPTION_LEN: u32 = 256;
+const MAX_WRAP_IMAGE_URL_LEN: u32 = 2048;
+
 #[contract]
 pub struct StellarWrapContract;
 
@@ -160,6 +163,52 @@ impl StellarWrapContract {
         aggregated_signature: Option<BytesN<64>>,
     ) {
         mint::mint_wrap_batch(e, items, aggregated_signature);
+    }
+    /// Updates the optional display metadata for an existing wrap.
+    ///
+    /// Only the wrap owner (`user`) may update the metadata. Both fields are
+    /// optional: pass `None` to clear, or `Some(...)` to set. The description
+    /// is limited to 256 bytes and the image URL to 2048 bytes.
+    ///
+    /// Emits a `set_wrap_metadata` event with the resulting metadata.
+    pub fn set_wrap_metadata(
+        e: Env,
+        user: Address,
+        period: u64,
+        description: Option<String>,
+        image_url: Option<String>,
+    ) {
+        user.require_auth();
+
+        if let Some(ref d) = description {
+            if d.len() > MAX_WRAP_DESCRIPTION_LEN {
+                panic!("wrap description exceeds maximum length");
+            }
+        }
+        if let Some(ref i) = image_url {
+            if i.len() > MAX_WRAP_IMAGE_URL_LEN {
+                panic!("wrap image URL exceeds maximum length");
+            }
+        }
+
+        let key = DataKey::Wrap(user.clone(), period);
+        let mut record: WrapRecord = e
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic!("wrap record does not exist"));
+
+        record.description = description;
+        record.image_url = image_url;
+        e.storage().persistent().set(&key, &record);
+
+        let ttl = 17280 * 365; // ~1 year in ledgers
+        e.storage().persistent().extend_ttl(&key, ttl, ttl);
+
+        e.events().publish(
+            (Symbol::new(&e, "set_wrap_metadata"), user, period),
+            (),
+        );
     }
 
     /// Transfers one wrap record and atomically charges the configured fee.
