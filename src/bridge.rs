@@ -1,18 +1,24 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, Bytes, BytesN, Env, Symbol};
 
-use crate::storage_types::{
-    BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord, WrapState,
-};
 use crate::signature::verify_inbound_bridge_signature;
+use crate::storage_types::{
+    BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord,
+    WrapState,
+};
 use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
-/// Set the bridge relayer address. Requires admin authorization.
-pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+/// Configure the bridge relayer set and threshold for a given chain. Requires admin authorization.
+pub(crate) fn set_bridge_relayers(
+    e: &Env,
+    chain_id: u32,
+    relayers: soroban_sdk::Vec<BytesN<32>>,
+    threshold: u32,
+) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
-    if threshold == 0 || threshold > relayers.len() as u32 {
+    if threshold == 0 || threshold > relayers.len() {
         panic_with_error!(e, ContractError::InvalidThreshold);
     }
     let key = DataKey::BridgeRelayerSet(chain_id);
@@ -20,9 +26,7 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
         relayers,
         threshold,
     };
-    e.storage()
-        .instance()
-        .set(&key, &relayer_set);
+    e.storage().instance().set(&key, &relayer_set);
     e.storage()
         .instance()
         .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
@@ -30,7 +34,9 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
 
 /// Returns the configured bridge relayer set for a given chain, or None if not set.
 pub(crate) fn get_bridge_relayers(e: &Env, chain_id: u32) -> Option<BridgeRelayerSet> {
-    e.storage().instance().get(&DataKey::BridgeRelayerSet(chain_id))
+    e.storage()
+        .instance()
+        .get(&DataKey::BridgeRelayerSet(chain_id))
 }
 
 /// Enable or disable a cross-chain network chain ID. Requires admin authorization.
@@ -131,12 +137,9 @@ pub(crate) fn bridge_wrap_out(
 
 /// Restore a bridged wrap when the destination chain rejects the transfer.
 /// Only the configured bridge relayer may call this operation.
+#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
-
-    let relayer = get_bridge_relayer(&e)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
-    relayer.require_auth();
 
     let request_key = DataKey::OutboundBridgeRequest(outbound_nonce);
     let request: OutboundBridgeRequest = e
@@ -177,7 +180,7 @@ pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
 /// An opted-out recipient rejects the message without creating or updating any
 /// wrap records. The inbound nonce is still consumed and a `br_in_rej` event
 /// is emitted so the relayer does not retry the rejected message indefinitely.
-#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
+#[allow(deprecated, clippy::too_many_arguments)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn bridge_wrap_in(
     e: Env,
     source_chain: u32,
@@ -221,8 +224,10 @@ pub(crate) fn bridge_wrap_in(
                 period,
                 &archetype,
                 &data_hash,
-                &sig
-            ).is_ok() {
+                &sig,
+            )
+            .is_ok()
+            {
                 used_relayers.push_back(relayer);
                 matched = true;
                 break;
@@ -352,7 +357,7 @@ pub(crate) fn bridge_wrap_in(
         }
     } else {
         let mut existing_record: WrapRecord = e.storage().persistent().get(&wrap_key).unwrap();
-        if !existing_record.fsm.transition_to(WrapState::Active, now) {
+        if !existing_record.fsm.restore_from_bridge(now) {
             panic_with_error!(e, ContractError::InvalidStateTransition);
         }
         e.storage().persistent().set(&wrap_key, &existing_record);

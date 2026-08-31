@@ -187,7 +187,52 @@ pub(crate) fn transfer_wrap(e: Env, from: Address, to: Address, period: u64) {
     write_owner_state(&e, &from, &source_periods);
     write_owner_state(&e, &to, &destination_periods);
 
+    // Keep the legacy UserPeriods index in sync with the ownership change so
+    // get_wraps / get_all_wraps_for_user stay consistent for both parties.
+    let source_user_key = DataKey::UserPeriods(from.clone());
+    let source_user_periods: Vec<u64> = e
+        .storage()
+        .persistent()
+        .get(&source_user_key)
+        .unwrap_or_else(|| Vec::new(&e));
+    let remaining = remove_period(&e, &source_user_periods, period);
+    if remaining.is_empty() {
+        e.storage().persistent().remove(&source_user_key);
+    } else {
+        e.storage().persistent().set(&source_user_key, &remaining);
+        e.storage()
+            .persistent()
+            .extend_ttl(&source_user_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
+    }
+
+    let dest_user_key = DataKey::UserPeriods(to.clone());
+    let mut dest_user_periods: Vec<u64> = e
+        .storage()
+        .persistent()
+        .get(&dest_user_key)
+        .unwrap_or_else(|| Vec::new(&e));
+    if !contains_period(&dest_user_periods, period) {
+        dest_user_periods.push_back(period);
+        e.storage()
+            .persistent()
+            .set(&dest_user_key, &dest_user_periods);
+        e.storage()
+            .persistent()
+            .extend_ttl(&dest_user_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
+    }
+
     e.storage().temporary().remove(&DataKey::TransferGuard);
+
+    // Update the per-user last-updated timestamp for both parties so
+    // `get_last_updated` reflects the transfer activity.
+    let now = e.ledger().timestamp();
+    e.storage()
+        .persistent()
+        .set(&DataKey::LastUpdated(from.clone()), &now);
+    e.storage()
+        .persistent()
+        .set(&DataKey::LastUpdated(to.clone()), &now);
+
     if let Some(ref fee) = fee {
         e.events().publish(
             (symbol_short!("transfer"), from, to, period),
