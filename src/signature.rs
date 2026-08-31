@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::vec;
+
 use ed25519_dalek::{Signature, VerifyingKey};
 use soroban_sdk::{contracttype, xdr::ToXdr, Address, Bytes, BytesN, Env, Symbol};
 
@@ -523,7 +526,10 @@ mod tests {
         let payload = construct_batch_mint_payload(&env, &contract_id, &items, 1);
         let len = payload.len() as usize;
         // Confirm the payload is well above the old 512-byte limit.
-        assert!(len > 512, "batch payload should exceed old buffer: {len} bytes");
+        assert!(
+            len > 512,
+            "batch payload should exceed old buffer: {len} bytes"
+        );
 
         let mut out = vec![0u8; len];
         payload.copy_into_slice(&mut out);

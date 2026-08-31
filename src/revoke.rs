@@ -128,7 +128,9 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
 
     let total_revoked_key = DataKey::TotalRevoked;
     let current_total: u64 = e.storage().instance().get(&total_revoked_key).unwrap_or(0);
-    let next_total = current_total.checked_add(1).unwrap_or_else(|| panic_with_error!(&e, ContractError::ArithmeticOverflow));
+    let next_total = current_total
+        .checked_add(1)
+        .unwrap_or_else(|| panic_with_error!(&e, ContractError::ArithmeticOverflow));
     e.storage().instance().set(&total_revoked_key, &next_total);
 
     // Record the revocation timestamp in the user's last-updated marker.
