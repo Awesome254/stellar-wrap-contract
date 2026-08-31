@@ -1,8 +1,9 @@
 #![cfg(test)]
 
+use std::string::ToString;
+
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env};
-use std::string::ToString;
 
 use crate::{test_utils::sign_payload, StellarWrapContract, StellarWrapContractClient};
 

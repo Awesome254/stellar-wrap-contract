@@ -10,8 +10,9 @@
 //!
 //! Replace inline `e.events().publish()` calls with typed enum values, reducing the risk of typos and improving discoverability.
 
-use crate::storage_types::{StakeConfig, WrapState};
 use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env, Symbol};
+
+use crate::storage_types::{StakeConfig, WrapState};
 /// All events emitted by the contract.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
