@@ -794,11 +794,15 @@ mod bridge_test;
 #[cfg(test)]
 mod expiration_test;
 #[cfg(test)]
+mod governance_test;
+#[cfg(test)]
 mod last_updated_test;
 #[cfg(test)]
 mod oracle_test;
 #[cfg(test)]
 mod prop_test;
+#[cfg(test)]
+mod queries_test;
 #[cfg(test)]
 mod security_test;
 #[cfg(test)]
@@ -811,5 +815,3 @@ mod test_utils;
 mod test_vectors;
 #[cfg(test)]
 mod transfer_test;
-#[cfg(test)]
-mod queries_test;
