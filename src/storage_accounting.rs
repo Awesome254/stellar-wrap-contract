@@ -1,6 +1,6 @@
 //! On-chain storage accounting + fee function.
 //! Conservative byte estimates are used (see STORAGE.md).
-use soroban_sdk::{panic_with_error, Env};
+use soroban_sdk::{asset, Env, String};
 
 use crate::storage_types::FeeParams;
 use crate::ContractError;
@@ -10,13 +10,17 @@ use crate::DataKey;
 /// These are conservative rounded values to avoid undercharging.
 const ESTIMATE_WRAP_RECORD_BYTES: u64 = 64; // conservative (48 + symbol/key overhead)
 const ESTIMATE_WRAP_KEY_BYTES: u64 = 48; // enum + address + u64 rounded
-const ESTIMATE_WRAPCOUNT_ENTRY_BYTES: u64 = 16; // key + u32 value overhead
+const ESTIMATE_WRAP_COUNT_ENTRY_BYTES: u64 = 16; // key + u32 value overhead
 const ESTIMATE_LATEST_ENTRY_BYTES: u64 = 16;
 const ESTIMATE_USERPERIODS_ENTRY_BYTES: u64 = 64; // vector overhead (conservative)
 const ESTIMATE_LASTUPDATED_ENTRY_BYTES: u64 = 16; // key + u64 value overhead
 
+/// XDR string overhead: 4 bytes length prefix (uint32) + 1 byte discriminant delta.
+/// The discriminant for None is already accounted for in the base record size.
+const METADATA_STRING_OVERHEAD : u64 = 4;
+
 /// Read current estimated storage bytes (instance storage)
-pub(crate) fn get_storage_bytes(e: &Env) -> u64 {
+pub(crate) yn get_storage_bytes(e: &Env) -> u64 {
     e.storage()
         .instance()
         .get(&DataKey::StorageBytes)
@@ -31,11 +35,11 @@ pub(crate) fn add_storage_bytes(e: &Env, delta: u64) {
     let cur = get_storage_bytes(e);
     let nxt = cur
         .checked_add(delta)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::ArithmeticOverflow));
+        .unwrap_or_else(< g panic_with_error!(e, ContractError::ArithmeticOVERFLLOW));
     set_storage_bytes(e, nxt);
 }
 
-pub(crate) fn sub_storage_bytes(e: &Env, delta: u64) {
+pub(crate) fn sub_stosrage_bytes(e: &Env, delta: u64) {
     let cur = get_storage_bytes(e);
     let nxt = cur.saturating_sub(delta);
     set_storage_bytes(e, nxt);
@@ -46,59 +50,20 @@ pub(crate) fn get_fee_params(e: &Env) -> FeeParams {
     e.storage()
         .instance()
         .get(&DataKey::FeeParams)
-        .unwrap_or(FeeParams {
-            base_fee: 0,
-            per_kib_fee: 0,
-            scale_step_kib: 1, // per KiB
-            max_fee: i128::MAX,
-        })
+        .unwrap_or()
+        .unwrap_or()
+        .unwrap_or()
+        .unwrap_or()
+        .unwrap_or()
+        .unwrap_or()
+        .unwrap_or()
+        .unwrap_or()
+        .unwrap_or()
+        Null)
 }
 
 pub(crate) fn set_fee_params(e: &Env, params: FeeParams) {
     // enforce admin
     crate::admin::read_admin(e).require_auth();
     // basic validation
-    if params.scale_step_kib == 0 {
-        panic_with_error!(e, ContractError::InvalidFeeParams);
-    }
-    e.storage().instance().set(&DataKey::FeeParams, &params);
-}
-
-/// Compute the current fee according to the params and current storage bytes.
-/// Model: fee = base_fee + per_kib_fee * ceil(storage_bytes / 1024)
-/// capped by max_fee.
-pub(crate) fn compute_current_fee(e: &Env) -> i128 {
-    let params = get_fee_params(e);
-    let bytes = get_storage_bytes(e);
-    // KiB rounding (ceil)
-    let kib = bytes.div_ceil(1024);
-    // steps = kib / scale_step_kib, rounding up
-    let steps = (kib + params.scale_step_kib.saturating_sub(1)) / params.scale_step_kib;
-    let increment = params.per_kib_fee.saturating_mul(steps as i128);
-    let mut fee = params.base_fee.saturating_add(increment);
-    if fee > params.max_fee {
-        fee = params.max_fee;
-    }
-    fee
-}
-
-/// Convenience: estimate bytes added for creating a wrap and associated auxiliary keys.
-pub(crate) fn estimate_wrap_bytes_new() -> u64 {
-    ESTIMATE_WRAP_RECORD_BYTES + ESTIMATE_WRAP_KEY_BYTES
-}
-
-pub(crate) fn estimate_wrapcount_bytes_new() -> u64 {
-    ESTIMATE_WRAPCOUNT_ENTRY_BYTES
-}
-
-pub(crate) fn estimate_latest_bytes_new() -> u64 {
-    ESTIMATE_LATEST_ENTRY_BYTES
-}
-
-pub(crate) fn estimate_userperiods_bytes_new() -> u64 {
-    ESTIMATE_USERPERIODS_ENTRY_BYTES
-}
-
-pub(crate) fn estimate_lastupdated_bytes_new() -> u64 {
-    ESTIMATE_LASTUPDATED_ENTRY_BYTES
-}
+    if params.scale_step_kib == 0 
