@@ -10,6 +10,10 @@ This document defines the storage architecture, storage tier assignments, time-t
 > **Instance storage is for bounded configuration only.**
 >
 > Unbounded collections, user-generated data, per-operation records, and growing datasets must **never** be stored in instance storage. Unbounded instance entries increase the base footprint for every contract invocation, bloat transaction resource footprints, and risk exceeding ledger write limits. Any unbounded or per-user data must be placed in **Persistent storage** with active TTL management. Ephemeral locks and reentrancy guards belong in **Temporary storage**.
+>
+> **TTL constants are defined once in `src/constants.rs`:**
+> - `TTL_ONE_YEAR` (~1 year / 6,307,200 ledgers) for persistent storage.
+> - `TTL_TEMP` (~1 day / 17,280 ledgers) for short-lived persistent entries.
 
 ### Storage Tiers Overview
 Soroban provides three storage tiers with distinct persistence, TTL, and rent properties:
@@ -22,7 +26,7 @@ Soroban provides three storage tiers with distinct persistence, TTL, and rent pr
 2. **Persistent Storage (`e.storage().persistent()`)**:
    - User data, wrap records, governance proposals, staking records, and cross-chain bridge records.
    - Individual entries require explicit TTL extension (`extend_ttl`) to remain live on-chain.
-   - Baseline renewal policy: Extended to **~1 year** (`17,280 * 365 = 6,307,200` ledgers) on creation and modification.
+   - Baseline renewal policy: Extended to **~1 year** (`TTL_ONE_YEAR` from `constants.rs` = 6,307,200 ledgers) on creation and modification.
 
 3. **Temporary Storage (`e.storage().temporary()`)**:
    - Ephemeral reentrancy guards (`MintGuard`, `TransferGuard`).

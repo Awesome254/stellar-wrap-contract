@@ -21,10 +21,6 @@ pub const MIN_DELAY: u64 = 3_600;
 /// with an effectively infinite delay.
 pub const MAX_DELAY: u64 = 30 * 24 * 3_600;
 
-/// Persistent TTL for scheduled operations (~1 year in ledgers), matching the
-/// TTL used for wrap records elsewhere in the contract.
-const TTL_ONE_YEAR: u32 = 17_280 * 365;
-
 /// Returns the configured delay in seconds, or `None` while the timelock is
 /// disabled.
 pub(crate) fn delay(e: &Env) -> Option<u64> {

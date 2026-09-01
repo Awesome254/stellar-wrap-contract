@@ -16,7 +16,6 @@ const DEFAULT_MIN_STAKE: i128 = 100;
 const DEFAULT_COOLDOWN_SECONDS: u64 = 7 * 24 * 60 * 60; // 7 days
 const DEFAULT_PRIORITY_MULTIPLIER_BPS: u32 = 1_000; // 10% per min_stake unit above minimum
 const DEFAULT_MAX_PRIORITY_BPS: u32 = 5_000; // 50% max discount
-const TTL_ONE_YEAR: u32 = 17_280 * 365; // ~1 year in ledgers
 
 // ── Config helpers ──────────────────────────────────────────────────────────
 

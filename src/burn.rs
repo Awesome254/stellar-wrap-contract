@@ -4,8 +4,6 @@ use crate::storage_accounting;
 use crate::{ContractError, DataKey, WrapRecord, WrapState};
 use crate::remove_wrap::remove_wrap_record;
 
-const TTL_ONE_YEAR: u32 = 17_280 * 365;
-
 /// Burns (permanently deletes) a wrap record owned by the caller.
 ///
 /// # Authorization

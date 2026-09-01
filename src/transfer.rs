@@ -1,8 +1,7 @@
 use soroban_sdk::{panic_with_error, symbol_short, token, Address, Env, Vec};
 
+use crate::constants::TTL_ONE_YEAR;
 use crate::{admin, ContractError, DataKey, TransferFeeConfig, WrapRecord};
-
-const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
 fn read_fee(e: &Env) -> Option<TransferFeeConfig> {
     e.storage().instance().get(&DataKey::TransferFee)
