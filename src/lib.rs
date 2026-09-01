@@ -424,6 +424,7 @@ impl StellarWrapContract {
     /// Only the `user` themselves can call this — `require_auth` is enforced
     /// inside the alias module. The hash is stored as opaque 32-byte data so
     /// no raw personal information ever touches the chain.
+    /// Does not require the contract to be initialized.
     pub fn set_alias_hash(e: Env, user: Address, alias_hash: BytesN<32>) {
         alias::set_alias_hash(e, user, alias_hash);
     }
