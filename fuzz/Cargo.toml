@@ -22,3 +22,10 @@ path = "fuzz_targets/fuzz_mint_wrap.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "fuzz_mint_wrap_batch"
+path = "fuzz_targets/fuzz_mint_wrap_batch.rs"
+test = false
+doc = false
+bench = false
