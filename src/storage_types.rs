@@ -83,12 +83,6 @@ pub struct WrapRecord {
 
     /// Current lifecycle state and its last update timestamp.
     pub fsm: WrapLifecycleFSM,
-
-    /// Optional description associated with the wrap.
-    pub description: Option<String>,
-
-    /// Optional image URL associated with the wrap.
-    pub image_url: Option<String>,
 }
 
 #[contracttype]
