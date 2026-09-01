@@ -225,7 +225,8 @@ pub enum DataKey {
     TransferGuard,
     /// Stores the highest storage migration version already applied.
     MigrationVersion,
-    /// Stores a list of periods a user has minted wraps for.
+    /// Stores the periods a user has minted, in insertion order. `get_wraps`
+    /// returns records in this order, not sorted by period.
     UserPeriods(Address),
     /// Total number of wraps ever minted across all users (lifetime counter).
     /// This is intentionally NOT decremented on `revoke_wrap` or `burn_wrap`.
