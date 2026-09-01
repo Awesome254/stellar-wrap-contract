@@ -803,6 +803,8 @@ mod bridge_test;
 #[cfg(test)]
 mod expiration_test;
 #[cfg(test)]
+mod governance_test;
+#[cfg(test)]
 mod last_updated_test;
 #[cfg(test)]
 mod oracle_test;
