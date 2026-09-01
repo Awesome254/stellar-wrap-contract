@@ -2,9 +2,7 @@
 //! Conservative byte estimates are used (see STORAGE.md).
 use soroban_sdk::{panic_with_error, Env};
 
-use crate::storage_types::FeeParams;
-use crate::ContractError;
-use crate::DataKey;
+use crate::{storage_types::FeeParams, ContractError, DataKey};
 
 /// Conservative estimates (in bytes) for persistent entries.
 /// These are conservative rounded values to avoid undercharging.

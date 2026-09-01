@@ -4,15 +4,12 @@
 #![allow(clippy::manual_is_multiple_of)]
 extern crate std;
 
-use super::*;
-
 use ed25519_dalek::{Signer, SigningKey};
 use proptest::prelude::*;
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, Symbol};
 
-use crate::merkle;
-use crate::mint::CURRENT_PAYLOAD_VERSION;
-use crate::signature::construct_mint_payload;
+use super::*;
+use crate::{merkle, mint::CURRENT_PAYLOAD_VERSION, signature::construct_mint_payload};
 
 // ── Shared test constants ────────────────────────────────────────────────────
 

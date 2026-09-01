@@ -1,18 +1,27 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, Bytes, BytesN, Env, Symbol};
 
-use crate::storage_types::{
-    BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord, WrapState,
+use crate::{
+    signature::verify_inbound_bridge_signature,
+    storage_accounting,
+    storage_types::{
+        BridgeRelayerSet, InboundBridgeRecord, OutboundBridgeRequest, WrapLifecycleFSM, WrapRecord,
+        WrapState,
+    },
+    ContractError, DataKey,
 };
-use crate::signature::verify_inbound_bridge_signature;
-use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
-/// Set the bridge relayer address. Requires admin authorization.
-pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+/// Set the bridge relayers for a given chain. Requires admin authorization.
+pub(crate) fn set_bridge_relayers(
+    e: &Env,
+    chain_id: u32,
+    relayers: soroban_sdk::Vec<soroban_sdk::BytesN<32>>,
+    threshold: u32,
+) {
     let admin = crate::admin::read_admin(e);
     admin.require_auth();
-    if threshold == 0 || threshold > relayers.len() as u32 {
+    if threshold == 0 || threshold > relayers.len() {
         panic_with_error!(e, ContractError::InvalidThreshold);
     }
     let key = DataKey::BridgeRelayerSet(chain_id);
@@ -20,9 +29,7 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
         relayers,
         threshold,
     };
-    e.storage()
-        .instance()
-        .set(&key, &relayer_set);
+    e.storage().instance().set(&key, &relayer_set);
     e.storage()
         .instance()
         .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
@@ -30,7 +37,9 @@ pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
 
 /// Returns the configured bridge relayer set for a given chain, or None if not set.
 pub(crate) fn get_bridge_relayers(e: &Env, chain_id: u32) -> Option<BridgeRelayerSet> {
-    e.storage().instance().get(&DataKey::BridgeRelayerSet(chain_id))
+    e.storage()
+        .instance()
+        .get(&DataKey::BridgeRelayerSet(chain_id))
 }
 
 /// Enable or disable a cross-chain network chain ID. Requires admin authorization.
@@ -134,16 +143,18 @@ pub(crate) fn bridge_wrap_out(
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
 
-    let relayer = get_bridge_relayer(&e)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
-    relayer.require_auth();
-
     let request_key = DataKey::OutboundBridgeRequest(outbound_nonce);
     let request: OutboundBridgeRequest = e
         .storage()
         .persistent()
         .get(&request_key)
         .unwrap_or_else(|| panic_with_error!(e, ContractError::InvalidBridgePayload));
+
+    let _relayer_set = get_bridge_relayers(&e, request.destination_chain)
+        .unwrap_or_else(|| panic_with_error!(e, ContractError::BridgeNotInitialized));
+    // TODO: Verify signatures for refund. For now, we just require admin authorization as fallback.
+    let admin = crate::admin::read_admin(&e);
+    admin.require_auth();
     let wrap_key = DataKey::Wrap(request.sender.clone(), request.period);
     let mut wrap_record: WrapRecord = e
         .storage()
@@ -161,6 +172,7 @@ pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
         .persistent()
         .extend_ttl(&wrap_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
+    #[allow(deprecated)]
     e.events().publish(
         (
             symbol_short!("br_refund"),
@@ -178,6 +190,7 @@ pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
 /// wrap records. The inbound nonce is still consumed and a `br_in_rej` event
 /// is emitted so the relayer does not retry the rejected message indefinitely.
 #[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn bridge_wrap_in(
     e: Env,
     source_chain: u32,
@@ -221,8 +234,10 @@ pub(crate) fn bridge_wrap_in(
                 period,
                 &archetype,
                 &data_hash,
-                &sig
-            ).is_ok() {
+                &sig,
+            )
+            .is_ok()
+            {
                 used_relayers.push_back(relayer);
                 matched = true;
                 break;
@@ -357,13 +372,9 @@ pub(crate) fn bridge_wrap_in(
         }
         e.storage().persistent().set(&wrap_key, &existing_record);
 
-        e.events().publish(
-            (
-                crate::events::MintEventType::Transition.to_symbol(&e),
-                recipient.clone(),
-                period,
-            ),
-            crate::events::MintEventData::Transition(recipient.clone(), period, WrapState::Active),
+        crate::events::publish_event(
+            &e,
+            crate::events::Event::MintTransition(recipient.clone(), period, WrapState::Active),
         );
     }
 

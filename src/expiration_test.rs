@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-use super::*;
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Events, Ledger},
@@ -8,6 +7,7 @@ use soroban_sdk::{
     Address, BytesN, Env, Symbol, TryIntoVal, Val,
 };
 
+use super::*;
 use crate::storage_types::{WrapLifecycleFSM, WrapRecord, WrapState};
 
 // ─── FSM transition unit tests ──────────────────────────────────────────

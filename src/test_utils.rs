@@ -2,9 +2,11 @@
 #![allow(dead_code)]
 
 use ed25519_dalek::{Signer, SigningKey};
-use soroban_sdk::testutils::Events;
-use soroban_sdk::xdr::{ContractEventBody, ScVal};
-use soroban_sdk::{Address, BytesN, Env, Symbol, TryIntoVal, Val};
+use soroban_sdk::{
+    testutils::Events,
+    xdr::{ContractEventBody, ScVal},
+    Address, BytesN, Env, Symbol, TryIntoVal, Val,
+};
 
 use crate::signature::{construct_batch_mint_payload, construct_mint_payload};
 
@@ -88,7 +90,7 @@ pub(crate) fn decode_events(env: &Env) -> std::vec::Vec<(std::vec::Vec<Val>, Val
                     .collect();
                 let data: Val = body.data.try_into_val(env).unwrap();
                 (topics, data)
-            }
+            },
         })
         .collect()
 }

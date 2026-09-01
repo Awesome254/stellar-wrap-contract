@@ -60,6 +60,7 @@ pub use token::TokenInterface;
 pub struct StellarWrapContract;
 
 #[contractimpl]
+#[allow(clippy::too_many_arguments)]
 impl StellarWrapContract {
     pub fn initialize(e: Env, admin: Address, admin_pubkey: BytesN<32>) {
         admin::initialize(e, admin, admin_pubkey);
@@ -562,7 +563,12 @@ impl StellarWrapContract {
     }
 
     /// Admin: Set the cross-chain token bridge relayers for a given chain.
-    pub fn set_bridge_relayers(e: Env, chain_id: u32, relayers: soroban_sdk::Vec<BytesN<32>>, threshold: u32) {
+    pub fn set_bridge_relayers(
+        e: Env,
+        chain_id: u32,
+        relayers: soroban_sdk::Vec<BytesN<32>>,
+        threshold: u32,
+    ) {
         bridge::set_bridge_relayers(&e, chain_id, relayers, threshold);
     }
 
@@ -599,6 +605,7 @@ impl StellarWrapContract {
     }
 
     /// Fulfill an inbound cross-chain wrap bridge transfer from external chain.
+    #[allow(clippy::too_many_arguments)]
     pub fn bridge_wrap_in(
         e: Env,
         source_chain: u32,
@@ -790,6 +797,8 @@ impl token::TokenInterface for StellarWrapContract {
 #[cfg(test)]
 mod balance_of_test;
 #[cfg(test)]
+mod batch_test;
+#[cfg(test)]
 mod bridge_test;
 #[cfg(test)]
 mod expiration_test;
@@ -799,6 +808,8 @@ mod last_updated_test;
 mod oracle_test;
 #[cfg(test)]
 mod prop_test;
+#[cfg(test)]
+mod queries_test;
 #[cfg(test)]
 mod security_test;
 #[cfg(test)]

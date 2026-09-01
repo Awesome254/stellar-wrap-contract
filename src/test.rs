@@ -2,15 +2,16 @@
 
 extern crate std;
 
-use super::*;
-use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned, sign_batch_payload};
+use std::vec::Vec;
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{
     symbol_short,
     testutils::{budget::ContractCostType, Address as _, Events, Ledger},
     Address, Bytes, BytesN, Env, IntoVal, String, Symbol, TryIntoVal,
 };
-use std::vec::Vec;
+
+use super::*;
+use crate::test_utils::{decode_events, sign_batch_payload, sign_payload, sign_payload_versioned};
 
 const STRESS_USER_COUNT: usize = 128;
 
@@ -164,7 +165,7 @@ fn test_revoke_emits_event_multi_user() {
 #[test]
 fn test_revoke_non_latest_wrap_preserves_latest() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[16u8; 32]);
@@ -200,8 +201,22 @@ fn test_revoke_non_latest_wrap_preserves_latest() {
         &newer_hash,
     );
 
-    client.mint_wrap(&user, &older_period, &archetype, &older_hash, &1u32, &older_sig);
-    client.mint_wrap(&user, &newer_period, &archetype, &newer_hash, &1u32, &newer_sig);
+    client.mint_wrap(
+        &user,
+        &older_period,
+        &archetype,
+        &older_hash,
+        &1u32,
+        &older_sig,
+    );
+    client.mint_wrap(
+        &user,
+        &newer_period,
+        &archetype,
+        &newer_hash,
+        &1u32,
+        &newer_sig,
+    );
 
     let reason = BytesN::from_array(&env, &[0u8; 32]);
     client.revoke_wrap(&user, &older_period, &reason);
@@ -1800,7 +1815,7 @@ fn test_burn_wrap_multiple_users_independent() {
 fn test_burn_then_transfer_remaining_wrap_succeeds() {
     // Acceptance criterion: mint two, burn one, transfer the other successfully.
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[41u8; 32]);
@@ -1827,8 +1842,24 @@ fn test_burn_then_transfer_remaining_wrap_succeeds() {
     let hash1 = BytesN::from_array(&env, &[41u8; 32]);
     let hash2 = BytesN::from_array(&env, &[42u8; 32]);
 
-    let sig1 = sign_payload(&env, &signing_key, &contract_id, &user, period1, &archetype, &hash1);
-    let sig2 = sign_payload(&env, &signing_key, &contract_id, &user, period2, &archetype, &hash2);
+    let sig1 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period1,
+        &archetype,
+        &hash1,
+    );
+    let sig2 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period2,
+        &archetype,
+        &hash2,
+    );
 
     client.mint_wrap(&user, &period1, &archetype, &hash1, &1u32, &sig1);
     client.mint_wrap(&user, &period2, &archetype, &hash2, &1u32, &sig2);
@@ -1853,7 +1884,7 @@ fn test_wrap_count_equals_wrap_periods_len_after_mint_burn_transfer() {
     // Acceptance criterion: WrapCount == WrapPeriods.len() holds after any
     // sequence of mint / burn / transfer.
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let signing_key = SigningKey::from_bytes(&[42u8; 32]);
@@ -1880,7 +1911,15 @@ fn test_wrap_count_equals_wrap_periods_len_after_mint_burn_transfer() {
     // Mint all four
     for i in 0..4 {
         let hash = BytesN::from_array(&env, &hashes[i]);
-        let sig = sign_payload(&env, &signing_key, &contract_id, &user, periods[i], &archetype, &hash);
+        let sig = sign_payload(
+            &env,
+            &signing_key,
+            &contract_id,
+            &user,
+            periods[i],
+            &archetype,
+            &hash,
+        );
         client.mint_wrap(&user, &periods[i], &archetype, &hash, &1u32, &sig);
     }
     assert_eq!(client.balance_of(&user), 4);
@@ -2081,8 +2120,9 @@ fn test_get_all_wraps_for_user_independent_per_user() {
 /// Tests the core requirement: verify_data must return true for correct data payloads
 /// that match the hash stored during minting.
 mod verify_data_unit_tests {
-    use super::*;
     use std::vec;
+
+    use super::*;
 
     /// Helper function to set up a standard test environment
     /// Returns: (Env, contract_id, client, signing_key, admin, user)
@@ -2643,7 +2683,7 @@ fn test_get_latest_wrap_multiple_wraps() {
 #[test]
 fn test_get_wrap_nonexistent_user_returns_none() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, StellarWrapContract);
+    let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -2733,8 +2773,10 @@ fn test_storage_md_documents_every_datakey_variant() {
 
 #[test]
 fn test_update_latest_period_option_storage_accounting() {
-    use crate::mint::update_latest_period;
-    use crate::storage_accounting::{estimate_latest_bytes_new, get_storage_bytes};
+    use crate::{
+        mint::update_latest_period,
+        storage_accounting::{estimate_latest_bytes_new, get_storage_bytes},
+    };
 
     let env = Env::default();
     let contract_id = env.register(StellarWrapContract, ());

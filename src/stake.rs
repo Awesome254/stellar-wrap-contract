@@ -7,8 +7,10 @@
 
 use soroban_sdk::{panic_with_error, symbol_short, Address, Env};
 
-use crate::storage_types::{StakeConfig, StakeRecord};
-use crate::{ContractError, DataKey};
+use crate::{
+    storage_types::{StakeConfig, StakeRecord},
+    ContractError, DataKey,
+};
 
 const DEFAULT_MIN_STAKE: i128 = 100;
 const DEFAULT_COOLDOWN_SECONDS: u64 = 7 * 24 * 60 * 60; // 7 days

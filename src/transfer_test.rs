@@ -2,8 +2,6 @@
 
 extern crate std;
 
-use super::*;
-use crate::test_utils::sign_payload;
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{
     symbol_short,
@@ -11,6 +9,9 @@ use soroban_sdk::{
     token::{Client as TokenClient, StellarAssetClient},
     vec, Address, BytesN, Env, IntoVal, Symbol, TryIntoVal,
 };
+
+use super::*;
+use crate::test_utils::sign_payload;
 
 struct Fixture {
     contract_id: Address,
@@ -179,7 +180,10 @@ fn transfer_keeps_every_query_consistent_for_both_parties() {
         "recipient must now list the transferred period"
     );
 
-    assert_eq!(client.get_latest_wrap(&fixture.from).unwrap().period, 202401);
+    assert_eq!(
+        client.get_latest_wrap(&fixture.from).unwrap().period,
+        202401
+    );
     assert_eq!(client.get_latest_wrap(&fixture.to).unwrap().period, 202405);
 
     assert_eq!(client.get_last_updated(&fixture.from), Some(2_000_000));

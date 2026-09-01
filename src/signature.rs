@@ -183,6 +183,7 @@ pub struct InboundBridgePayload {
     pub source_nonce: u64,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn construct_inbound_bridge_payload(
     e: &Env,
     contract_id: &Address,
@@ -210,6 +211,7 @@ pub fn construct_inbound_bridge_payload(
     payload
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn verify_inbound_bridge_signature(
     e: &Env,
     relayer_pubkey: &BytesN<32>,
@@ -240,13 +242,13 @@ pub fn verify_inbound_bridge_signature(
 mod tests {
     extern crate std;
 
-    use super::*;
-    use ed25519_dalek::{Signer, SigningKey};
-    use soroban_sdk::{symbol_short, testutils::Address as _, Address, Bytes, BytesN, Env, Symbol};
     use std::panic::{catch_unwind, AssertUnwindSafe};
 
-    use crate::StellarWrapContract;
-    use crate::StellarWrapContractClient;
+    use ed25519_dalek::{Signer, SigningKey};
+    use soroban_sdk::{symbol_short, testutils::Address as _, Address, Bytes, BytesN, Env, Symbol};
+
+    use super::*;
+    use crate::{StellarWrapContract, StellarWrapContractClient};
 
     fn sign_payload(
         env: &Env,

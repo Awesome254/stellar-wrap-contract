@@ -1,7 +1,6 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env, Vec};
 
-use crate::storage_accounting;
-use crate::{ContractError, DataKey};
+use crate::{storage_accounting, ContractError, DataKey};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
