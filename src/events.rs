@@ -9,8 +9,10 @@ use soroban_sdk::{contracttype, Address, Env, Symbol};
 
 use crate::storage_types::{StakeConfig, WrapState};
 /// All events emitted by the contract.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+///
+/// This enum is used for type-safe event publishing via [`publish_event`].
+/// Each variant maps to a `(domain, action)` pair and carries the data fields
+/// that are published as the event payload.
 pub enum Event {
     // Admin
     AdminInit(Address),
