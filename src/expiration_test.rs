@@ -594,6 +594,83 @@ fn test_set_expiration_duration_zero_fails() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #47)")]
+fn test_set_expiration_duration_below_min_fails() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[23u8; 32]);
+
+    client.initialize(&admin, &pubkey);
+    env.mock_all_auths();
+    client.set_expiration_duration(&3599u64);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #47)")]
+fn test_set_expiration_duration_above_max_fails() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[24u8; 32]);
+
+    client.initialize(&admin, &pubkey);
+    env.mock_all_auths();
+    client.set_expiration_duration(&(30 * 24 * 60 * 60 + 1));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #47)")]
+fn test_set_expiration_duration_u64_max_fails() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[25u8; 32]);
+
+    client.initialize(&admin, &pubkey);
+    env.mock_all_auths();
+    client.set_expiration_duration(&u64::MAX);
+}
+
+#[test]
+fn test_set_expiration_duration_min_succeeds() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[26u8; 32]);
+
+    client.initialize(&admin, &pubkey);
+    env.mock_all_auths();
+    let min_duration: u64 = 60 * 60;
+    client.set_expiration_duration(&min_duration);
+    assert_eq!(client.expiration_duration(), min_duration);
+}
+
+#[test]
+fn test_set_expiration_duration_max_succeeds() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[27u8; 32]);
+
+    client.initialize(&admin, &pubkey);
+    env.mock_all_auths();
+    let max_duration: u64 = 30 * 24 * 60 * 60;
+    client.set_expiration_duration(&max_duration);
+    assert_eq!(client.expiration_duration(), max_duration);
+}
+
+#[test]
 #[should_panic]
 fn test_set_expiration_duration_non_admin_fails() {
     let env = Env::default();

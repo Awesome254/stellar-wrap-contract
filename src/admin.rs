@@ -2,6 +2,11 @@ use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env};
 
 use crate::{mint::TTL_TEMP, ContractError, DataKey, TransferFeeConfig};
 
+/// Minimum duration for an admin proposal, in seconds (1 hour).
+pub(crate) const MIN_PROPOSAL_DURATION: u64 = 60 * 60;
+/// Maximum duration for an admin proposal, in seconds (30 days).
+pub(crate) const MAX_PROPOSAL_DURATION: u64 = 30 * 24 * 60 * 60;
+
 /// Reads the stored admin or panics with `NotInitialized`.
 pub(crate) fn read_admin(e: &Env) -> Address {
     e.storage()
@@ -366,4 +371,19 @@ pub(crate) fn set_wrap_metadata(
         ),
         (user, period, description, image_url),
     );
+}
+
+/// Validates an admin proposal duration and computes the proposal end time.
+///
+/// Panics with [`ContractError::InvalidProposalDuration`] if `duration_seconds`
+/// is outside [`MIN_PROPOSAL_DURATION`]..=[`MAX_PROPOSAL_DURATION`] or if the
+/// end timestamp overflows.
+pub(crate) fn proposal_end_time(e: &Env, duration_seconds: u64) -> u64 {
+    if duration_seconds < MIN_PROPOSAL_DURATION || duration_seconds > MAX_PROPOSAL_DURATION {
+        panic_with_error!(e, ContractError::InvalidProposalDuration);
+    }
+    let start_time = e.ledger().timestamp();
+    start_time
+        .checked_add(duration_seconds)
+        .unwrap_or_else(|| panic_with_error!(e, ContractError::InvalidProposalDuration))
 }
