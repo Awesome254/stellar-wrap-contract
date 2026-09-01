@@ -828,6 +828,8 @@ mod last_updated_test;
 #[cfg(test)]
 mod oracle_test;
 #[cfg(test)]
+mod pause_coverage_test;
+#[cfg(test)]
 mod prop_test;
 #[cfg(test)]
 mod queries_test;

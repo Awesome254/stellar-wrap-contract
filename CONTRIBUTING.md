@@ -40,6 +40,7 @@ Before opening a PR, confirm every item below:
 - [ ] If the PR changes contributor-facing workflow, `CONTRIBUTING.md` is updated.
 - [ ] No `unwrap()` or `expect()` in production code paths (test code is exempt).
 - [ ] All new public functions have `///` rustdoc comments.
+- [ ] Any new state-mutating entrypoint added to `src/lib.rs` must appear in the pause-coverage table in `src/pause_coverage_test.rs`, with an explicit decision: blocked by `require_not_paused`, or intentionally allowed with a documented reason.
 
 **Step 2.3: When to Update Documentation**
 
