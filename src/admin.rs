@@ -153,6 +153,26 @@ pub(crate) fn migration_version(e: &Env) -> u32 {
         .get(&DataKey::MigrationVersion)
         .unwrap_or(0)
 }
+/// Helper to apply an upgrade: bump version, emit event, update wasm.
+pub(crate) fn apply_upgrade(e: Env, wasm_hash: BytesN<32>) {
+    // Increment contract version
+    let next_version = e
+        .storage()
+        .instance()
+        .get(&DataKey::ContractVersion)
+        .unwrap_or(0)
+        + 1;
+    e.storage()
+        .instance()
+        .set(&DataKey::ContractVersion, &next_version);
+
+    // Emit upgrade event with version
+    e.events()
+        .publish((symbol_short!("upgrade"), next_version), wasm_hash.clone());
+
+    // Update contract wasm
+    e.deployer().update_current_contract_wasm(wasm_hash);
+}
 
 /// Applies a WASM upgrade: bumps the `ContractVersion` counter, emits the
 /// `("upgrade", version)` audit event carrying the new WASM hash, and swaps
