@@ -146,7 +146,13 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
             .extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
     }
 
-    // 8. Emit burn event AFTER all state mutations
+    // 8. Decrement global total wrap count (live wrap count)
+    let total_key = DataKey::TotalWrapCount;
+    let total: u32 = e.storage().persistent().get(&total_key).unwrap_or(0);
+    e.storage().persistent().set(&total_key, &total.saturating_sub(1));
+    e.storage().persistent().extend_ttl(&total_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
+
+    // 9. Emit burn event AFTER all state mutations
     e.events()
         .publish((symbol_short!("burn"), user.clone(), period), user);
 }

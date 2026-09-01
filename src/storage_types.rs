@@ -230,7 +230,8 @@ pub enum DataKey {
     MigrationVersion,
     /// Stores a list of periods a user has minted wraps for.
     UserPeriods(Address),
-    /// Stores the total number of successful wrap mints across all users.
+    /// Total number of wraps ever minted across all users (lifetime counter).
+    /// This is intentionally NOT decremented on `revoke_wrap` or `burn_wrap`.
     TotalWrapCount,
     /// Stores the total number of wrap records revoked on-chain.
     TotalRevoked,

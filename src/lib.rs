@@ -219,6 +219,10 @@ impl StellarWrapContract {
         queries::get_last_updated(e, user)
     }
 
+    /// Returns the number of wraps currently live on this contract.
+    ///
+    /// This counter is incremented by `mint_wrap`, `mint_wrap_batch`, and
+    /// `bridge_wrap_in`, and decremented by `revoke_wrap` and `burn_wrap`.
     pub fn total_wrap_count(e: Env) -> u32 {
         queries::total_wrap_count(e)
     }
@@ -465,10 +469,12 @@ impl StellarWrapContract {
 
     pub fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: BytesN<32>) {
         revoke::revoke_wrap(e, user, period, reason_hash);
+        decrement_total_wrap_count(&e);
     }
 
     pub fn burn_wrap(e: Env, user: Address, period: u64) {
         burn::burn_wrap(e, user, period);
+        decrement_total_wrap_count(&e);
     }
 
     /// Returns the total number of wraps that have been revoked globally.
@@ -828,6 +834,12 @@ impl token::TokenInterface for StellarWrapContract {
     fn balance_of(e: Env, user: Address) -> i128 {
         queries::balance_of(e, user)
     }
+}
+
+fn decrement_total_wrap_count(e: &Env) {
+    let key = DataKey::TotalWrapCount;
+    let count: u32 = e.storage().instance().get(&key).unwrap_or(0);
+    e.storage().instance().set(&key, &count.saturating_sub(1));
 }
 
 #[cfg(test)]
