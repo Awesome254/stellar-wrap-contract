@@ -1,6 +1,5 @@
 // Leaf/pair helpers are kept public for parity with the off-chain tree builder
 // in `scripts/merkle.ts`; not every one is called from a contract entrypoint.
-#![allow(dead_code)]
 
 use soroban_sdk::{
     panic_with_error, symbol_short, xdr::ToXdr, Address, Bytes, BytesN, Env, String, Symbol, Vec,

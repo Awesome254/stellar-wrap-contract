@@ -122,3 +122,25 @@ fn test_single_leaf_tree() {
     let other_user = Address::generate(&env);
     assert!(!client.verify_whitelist(&other_user, &empty_proof));
 }
+
+#[test]
+fn test_require_whitelisted_rejects_invalid_merkle_proof() {
+    let (env, client, _) = setup();
+    let user = Address::generate(&env);
+    let other_user = Address::generate(&env);
+
+    let user_leaf = client.whitelist_leaf(&user);
+    let other_leaf = client.whitelist_leaf(&other_user);
+    let root = hash_pair(&env, &user_leaf, &other_leaf);
+    client.set_whitelist_root(&root);
+
+    let invalid_proof = vec![&env, user_leaf.clone()];
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        crate::merkle::require_whitelisted(&env, &user, &invalid_proof);
+    }));
+
+    assert!(
+        result.is_err(),
+        "invalid Merkle proof must be rejected with InvalidMerkleProof"
+    );
+}
