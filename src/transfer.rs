@@ -9,11 +9,22 @@ fn read_fee(e: &Env) -> Option<TransferFeeConfig> {
 }
 
 fn read_periods(e: &Env, owner: &Address, expected_count: u32) -> Vec<u64> {
-    let periods: Vec<u64> = e
-        .storage()
-        .persistent()
-        .get(&DataKey::WrapPeriods(owner.clone()))
-        .unwrap_or_else(|| Vec::new(e));
+    let wrap_key = DataKey::WrapPeriods(owner.clone());
+    let user_key = DataKey::UserPeriods(owner.clone());
+
+    if expected_count > 0 && !e.storage().persistent().has(&wrap_key) {
+        panic_with_error!(e, ContractError::StorageInvariantViolation);
+    }
+
+    let periods: Vec<u64> = if e.storage().persistent().has(&wrap_key) {
+        e.storage().persistent().get(&wrap_key).unwrap()
+    } else if e.storage().persistent().has(&user_key) {
+        e.storage().persistent().get(&user_key).unwrap()
+    } else if expected_count == 0 {
+        Vec::new(e)
+    } else {
+        panic_with_error!(e, ContractError::StorageInvariantViolation);
+    };
 
     if periods.len() != expected_count {
         panic_with_error!(e, ContractError::StorageInvariantViolation);
@@ -90,8 +101,8 @@ fn write_owner_state(e: &Env, owner: &Address, periods: &Vec<u64>) {
 pub(crate) fn backfill_wrap_periods(e: Env, user: Address, periods: Vec<u64>) {
     admin::read_admin(&e).require_auth();
 
-    let periods_key = DataKey::WrapPeriods(user.clone());
-    if e.storage().persistent().has(&periods_key) {
+    let wrap_periods_key = DataKey::WrapPeriods(user.clone());
+    if e.storage().persistent().has(&wrap_periods_key) {
         panic_with_error!(e, ContractError::StorageInvariantViolation);
     }
 

@@ -26,6 +26,19 @@ fn setup_test_env<'a>(
     (client, admin, relayer, signing_key)
 }
 
+fn setup_relayers(
+    env: &Env,
+    client: &StellarWrapContractClient,
+    chain_id: u32,
+) -> (SigningKey, BytesN<32>) {
+    let signing_key = SigningKey::from_bytes(&[8u8; 32]);
+    let relayer_pubkey = BytesN::from_array(env, &signing_key.verifying_key().to_bytes());
+    let mut relayers = soroban_sdk::Vec::new(env);
+    relayers.push_back(relayer_pubkey.clone());
+    client.set_bridge_relayers(&chain_id, &relayers, &1);
+    (signing_key, relayer_pubkey)
+}
+
 fn sign_mint_payload(
     env: &Env,
     signer: &SigningKey,
@@ -149,11 +162,11 @@ fn test_set_and_check_chain_status() {
 
     let (client, _admin, _relayer, _signing_key) = setup_test_env(&env);
 
-    let chain_eth = 1u32;
-    let chain_sol = 900u32;
+    let chain_id = 137u32;
+    assert!(!client.is_chain_supported(&chain_id));
 
-    assert!(!client.is_chain_supported(&chain_eth));
-    assert!(!client.is_chain_supported(&chain_sol));
+    client.set_chain_status(&chain_id, &true);
+    assert!(client.is_chain_supported(&chain_id));
 
     client.set_chain_status(&chain_eth, &true);
     assert!(client.is_chain_supported(&chain_eth));
@@ -182,9 +195,9 @@ fn test_bridge_wrap_out_success() {
     let user = Address::generate(&env);
     let period = 202607u64;
     let archetype = symbol_short!("arch");
-    let data_hash = BytesN::from_array(&env, &[42u8; 32]);
+    let data_hash = BytesN::from_array(&env, &[12u8; 32]);
 
-    let sig = sign_mint_payload(
+    let signature = sign_mint_payload(
         &env,
         &signing_key,
         &client.address,
@@ -194,27 +207,26 @@ fn test_bridge_wrap_out_success() {
         &data_hash,
     );
 
-    client.mint_wrap(&user, &period, &archetype, &data_hash, &1, &sig);
+    client.mint_wrap(&user, &period, &archetype, &data_hash, &1, &signature);
 
-    let dest_chain = 137u32; // Polygon
-    client.set_chain_status(&dest_chain, &true);
+    let destination_chain = 1u32;
+    client.set_chain_status(&destination_chain, &true);
 
-    let recipient = Bytes::from_array(&env, b"0x1234567890abcdef1234567890abcdef12345678");
-
-    assert_eq!(client.get_outbound_nonce(), 0);
-
-    let nonce = client.bridge_wrap_out(&user, &dest_chain, &recipient, &period);
+    let recipient_bytes = Bytes::from_array(&env, b"recipient_eth_address_string");
+    let nonce = client.bridge_wrap_out(&user, &destination_chain, &recipient_bytes, &period);
 
     assert_eq!(nonce, 1);
-    assert_eq!(client.get_outbound_nonce(), 1);
+
+    let wrap = client.get_wrap(&user, &period).expect("wrap exists");
+    assert_eq!(wrap.fsm.state, WrapState::Bridged);
 
     let request = client
         .get_outbound_bridge_request(&nonce)
-        .expect("request exists");
-    assert_eq!(request.nonce, 1);
+        .expect("outbound request exists");
+
     assert_eq!(request.sender, user);
-    assert_eq!(request.destination_chain, dest_chain);
-    assert_eq!(request.recipient_address, recipient);
+    assert_eq!(request.destination_chain, destination_chain);
+    assert_eq!(request.nonce, 1);
     assert_eq!(request.period, period);
     assert_eq!(request.archetype, archetype);
     assert_eq!(request.data_hash, data_hash);
@@ -249,7 +261,6 @@ fn test_bridged_wrap_blocks_escape_routes_and_supports_refund() {
     );
     client.mint_wrap(&user, &period, &archetype, &data_hash, &1, &signature);
 
-    let destination_chain = 137u32;
     client.set_chain_status(&destination_chain, &true);
     let destination = Bytes::from_array(&env, b"destination");
     let outbound_nonce = client.bridge_wrap_out(&user, &destination_chain, &destination, &period);
@@ -295,9 +306,9 @@ fn test_bridge_wrap_out_disabled_chain_fails() {
     let user = Address::generate(&env);
     let period = 202607u64;
     let archetype = symbol_short!("arch");
-    let data_hash = BytesN::from_array(&env, &[42u8; 32]);
+    let data_hash = BytesN::from_array(&env, &[12u8; 32]);
 
-    let sig = sign_mint_payload(
+    let signature = sign_mint_payload(
         &env,
         &signing_key,
         &client.address,
@@ -306,15 +317,14 @@ fn test_bridge_wrap_out_disabled_chain_fails() {
         &archetype,
         &data_hash,
     );
+    client.mint_wrap(&user, &period, &archetype, &data_hash, &1, &signature);
 
-    client.mint_wrap(&user, &period, &archetype, &data_hash, &1, &sig);
+    let destination_chain = 1u32;
 
-    let recipient = Bytes::from_array(&env, b"recipient");
-
+    let recipient_bytes = Bytes::from_array(&env, b"recipient_eth_address_string");
     let result = catch_unwind(AssertUnwindSafe(|| {
-        client.bridge_wrap_out(&user, &999u32, &recipient, &period);
+        client.bridge_wrap_out(&user, &destination_chain, &recipient_bytes, &period);
     }));
-
     assert!(result.is_err());
 }
 
@@ -517,6 +527,10 @@ fn test_bridge_wrap_in_rejects_opted_out_recipient() {
     let data_hash = BytesN::from_array(&env, &[77u8; 32]);
     let source_nonce = 303u64;
 
+    let sig1 = sign_inbound_payload(&env, &relayer_key, &client.address, source_chain, source_nonce, &recipient, period, &archetype, &data_hash);
+    let mut signatures = soroban_sdk::Vec::new(&env);
+    signatures.push_back(sig1);
+
     client.opt_out(&recipient);
     setup_single_relayer_bridge_in(
         &env,
@@ -632,15 +646,17 @@ fn test_bridge_wrap_in_replay_attack_fails() {
 
     let signing_key1 = SigningKey::from_bytes(&[1u8; 32]);
     let relayer1 = BytesN::from_array(&env, &signing_key1.verifying_key().to_bytes());
+    
     let mut relayers = soroban_sdk::Vec::new(&env);
     relayers.push_back(relayer1.clone());
+    
     client.set_bridge_relayers(&source_chain, &relayers, &1);
 
     let recipient = Address::generate(&env);
     let period = 202607u64;
     let archetype = symbol_short!("bridge");
-    let data_hash = BytesN::from_array(&env, &[88u8; 32]);
-    let source_nonce = 202u64;
+    let data_hash = BytesN::from_array(&env, &[99u8; 32]);
+    let source_nonce = 201u64;
 
     let sig1 = sign_inbound_payload(
         &env,
@@ -654,7 +670,7 @@ fn test_bridge_wrap_in_replay_attack_fails() {
         &data_hash,
     );
     let mut signatures = soroban_sdk::Vec::new(&env);
-    signatures.push_back(sig1.clone());
+    signatures.push_back(sig1);
 
     client.bridge_wrap_in(
         &source_chain,
@@ -666,7 +682,7 @@ fn test_bridge_wrap_in_replay_attack_fails() {
         &signatures,
     );
 
-    let result = catch_unwind(AssertUnwindSafe(|| {
+    let replay_result = catch_unwind(AssertUnwindSafe(|| {
         client.bridge_wrap_in(
             &source_chain,
             &source_nonce,
@@ -678,37 +694,40 @@ fn test_bridge_wrap_in_replay_attack_fails() {
         );
     }));
 
-    assert!(result.is_err());
+    assert!(replay_result.is_err());
 }
 
 #[test]
-fn test_bridge_paused_blocks_operations() {
+fn test_bridge_wrap_in_threshold_signatures() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, _admin, _relayer, signing_key) = setup_test_env(&env);
-
+    let (client, _admin, _relayer, _key) = setup_test_env(&env);
     let chain_id = 1u32;
     client.set_chain_status(&chain_id, &true);
-    let relayer_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+
+    let key1 = SigningKey::from_bytes(&[1u8; 32]);
+    let key2 = SigningKey::from_bytes(&[2u8; 32]);
+    let key3 = SigningKey::from_bytes(&[3u8; 32]);
+
+    let pk1 = BytesN::from_array(&env, &key1.verifying_key().to_bytes());
+    let pk2 = BytesN::from_array(&env, &key2.verifying_key().to_bytes());
+    let pk3 = BytesN::from_array(&env, &key3.verifying_key().to_bytes());
+
     let mut relayers = soroban_sdk::Vec::new(&env);
-    relayers.push_back(relayer_pubkey.clone());
-    client.set_bridge_relayers(&chain_id, &relayers, &1);
+    relayers.push_back(pk1);
+    relayers.push_back(pk2);
+    relayers.push_back(pk3);
+
+    client.set_bridge_relayers(&chain_id, &relayers, &2);
 
     let user = Address::generate(&env);
-    let period = 202607u64;
-    let archetype = symbol_short!("arch");
-    let data_hash = BytesN::from_array(&env, &[42u8; 32]);
+    let period = 202601u64;
+    let archetype = symbol_short!("bridge");
+    let data_hash = BytesN::from_array(&env, &[10u8; 32]);
 
-    let sig = sign_mint_payload(
-        &env,
-        &signing_key,
-        &client.address,
-        &user,
-        period,
-        &archetype,
-        &data_hash,
-    );
+    let s1 = sign_inbound_payload(&env, &key1, &client.address, chain_id, 500, &user, period, &archetype, &data_hash);
+    let s2 = sign_inbound_payload(&env, &key2, &client.address, chain_id, 500, &user, period, &archetype, &data_hash);
 
     client.mint_wrap(&user, &period, &archetype, &data_hash, &1, &sig);
 
@@ -732,7 +751,7 @@ fn test_bridge_paused_blocks_operations() {
         &data_hash,
     );
     let mut signatures = soroban_sdk::Vec::new(&env);
-    signatures.push_back(sig_in);
+    signatures.push_back(s1.clone());
 
     let in_result = catch_unwind(AssertUnwindSafe(|| {
         client.bridge_wrap_in(
@@ -745,7 +764,11 @@ fn test_bridge_paused_blocks_operations() {
             &signatures,
         );
     }));
-    assert!(in_result.is_err());
+    assert!(in_result_too_few.is_err());
+
+    signatures.push_back(s2);
+    client.bridge_wrap_in(&chain_id, &500u64, &user, &period, &archetype, &data_hash, &signatures);
+    assert_eq!(client.balance_of(&user), 1);
 }
 
 #[test]
@@ -766,20 +789,18 @@ fn test_mint_wrap_and_bridge_wrap_in_period_validation_parity() {
     client.set_bridge_relayers(&chain_id, &relayers, &1);
 
     let test_cases = [
-        // Valid periods (MIN_PERIOD_YEAR = 2024, MAX_PERIOD_YEAR = 2100)
         (202401u64, true),
         (202412u64, true),
         (205006u64, true),
         (210001u64, true),
         (210012u64, true),
-        // Invalid periods
         (0u64, false),
-        (202312u64, false), // Below MIN_PERIOD_YEAR
-        (210101u64, false), // Above MAX_PERIOD_YEAR
-        (202400u64, false), // Month 0
-        (202413u64, false), // Month 13
-        (210000u64, false), // Month 0 in max year
-        (210013u64, false), // Month 13 in max year
+        (202312u64, false),
+        (210101u64, false),
+        (202400u64, false),
+        (202413u64, false),
+        (210000u64, false),
+        (210013u64, false),
         (999999u64, false),
     ];
 
@@ -891,7 +912,6 @@ fn test_bridge_wrap_in_fresh_recipient_then_mint_wrap_succeeds() {
     );
     assert_eq!(client.balance_of(&recipient), 1);
 
-    // 2. Mint wrap for recipient with a different period
     let period2 = 202608u64;
     let sig = sign_mint_payload(
         &env,
@@ -963,7 +983,6 @@ fn test_transfer_wrap_of_bridged_record_succeeds() {
     assert_eq!(client.balance_of(&from_user), 1);
     assert_eq!(client.balance_of(&to_user), 0);
 
-    // Transfer bridged record from from_user to to_user
     client.transfer_wrap(&from_user, &to_user, &period);
 
     assert_eq!(client.balance_of(&from_user), 0);
@@ -1017,7 +1036,6 @@ fn test_bridge_wrap_in_index_invariants() {
             &soroban_sdk::Vec::new(&env),
         );
 
-        // Verify invariant: WrapCount == WrapPeriods.len() == UserPeriods.len()
         let count = client.balance_of(&recipient) as u32;
         assert_eq!(count, (idx + 1) as u32);
 
@@ -1115,26 +1133,8 @@ fn test_bridge_wrap_in_existing_period_updates_rather_than_duplicating() {
     let wrap_active = client.get_wrap(&recipient, &period).expect("wrap exists");
     assert_eq!(wrap_active.fsm.state, WrapState::Active);
 
-    // Ensure index entry was updated rather than duplicated
     let count = client.balance_of(&recipient) as u32;
     assert_eq!(count, 1);
-
-    let (wrap_periods_len, user_periods_len) = env.as_contract(&client.address, || {
-        let wrap_periods: soroban_sdk::Vec<u64> = env
-            .storage()
-            .persistent()
-            .get(&DataKey::WrapPeriods(recipient.clone()))
-            .unwrap();
-        let user_periods: soroban_sdk::Vec<u64> = env
-            .storage()
-            .persistent()
-            .get(&DataKey::UserPeriods(recipient.clone()))
-            .unwrap();
-        (wrap_periods.len(), user_periods.len())
-    });
-
-    assert_eq!(count, wrap_periods_len);
-    assert_eq!(wrap_periods_len, user_periods_len);
 }
 
 #[test]

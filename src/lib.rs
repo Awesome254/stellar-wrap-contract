@@ -92,6 +92,10 @@ impl StellarWrapContract {
         admin::clear_transfer_fee(e);
     }
 
+    pub fn update_admin_pubkey(e: Env, new_pubkey: BytesN<32>) {
+        admin::update_admin_pubkey(e, new_pubkey);
+    }
+
     pub fn pause(e: Env) {
         admin::set_pause(e, true);
     }

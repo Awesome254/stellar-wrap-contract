@@ -11,7 +11,7 @@ use soroban_sdk::{
         {Address as _, Events, Ledger},
     },
     testutils::{budget::ContractCostType, Address as _, Events, Ledger},
-    Address, Bytes, BytesN, Env, IntoVal, String, Symbol, TryIntoVal,
+    Address, Bytes, BytesN, Env, IntoVal, String, Symbol, TryFromVal, TryIntoVal,
 };
 
 use super::*;

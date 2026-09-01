@@ -603,9 +603,10 @@ fn test_set_expiration_duration_non_admin_fails() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[16u8; 32]);
 
+    env.mock_all_auths();
     client.initialize(&admin, &pubkey);
 
-    // Do NOT mock auths — require_auth will panic for non-admin.
+    env.set_auths(&[]);
     client.set_expiration_duration(&3600);
 }
 
