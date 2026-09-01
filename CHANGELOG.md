@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- `pause` / `unpause` now emit direction-distinguishable events with the acting
+  admin as the payload, instead of a shared `("pause",)` topic carrying a
+  boolean payload:
+  - pause:   topic `("pause", "paused")`, data = acting admin
+  - unpause: topic `("pause", "unpaused")`, data = acting admin
+- A redundant `pause`/`unpause` that requests the state already in effect is a
+  silent no-op and no longer emits an event, so alerting systems only see
+  signals that correspond to an actual state change.
+
 ## 0.1.0
 
 ### Contract interface snapshot

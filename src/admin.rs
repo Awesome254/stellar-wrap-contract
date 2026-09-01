@@ -58,9 +58,32 @@ pub(crate) fn update_admin(e: Env, new_admin: Address) {
     );
 }
 
+/// Pause or unpause the contract.
+///
+/// Pauses (`paused = true`) or resumes (`paused = false`) the contract and
+/// emits a direction-specific event carrying the acting admin.
+///
+/// A redundant call that requests the state already in effect is a silent
+/// no-op: it does **not** emit an event, so monitoring built on these events
+/// only sees signals that correspond to an actual state change (a double-pause
+/// by two incident responders must not be reported as a second pause).
+///
+/// Event topics are direction-distinguishable so subscribers can filter by
+/// direction instead of decoding a boolean payload:
+/// - pause:   `("pause", "paused")`, data = acting admin
+/// - unpause: `("pause", "unpaused")`, data = acting admin
 #[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn set_pause(e: Env, paused: bool) {
-    read_admin(&e).require_auth();
+    let admin = read_admin(&e);
+    admin.require_auth();
+
+    // Return early when the requested state already matches the current state.
+    // This makes a redundant pause/unpause a silent no-op instead of emitting
+    // an event that does not correspond to a state change.
+    if is_paused(&e) == paused {
+        return;
+    }
+
     e.storage().instance().set(&DataKey::Paused, &paused);
     crate::events::publish_event(&e, crate::events::Event::AdminPause(paused));
 }

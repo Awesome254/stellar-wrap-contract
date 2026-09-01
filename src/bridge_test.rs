@@ -922,6 +922,20 @@ fn test_transfer_wrap_of_bridged_record_succeeds() {
     let period = 202607u64;
     let archetype = symbol_short!("bridge");
     let data_hash = BytesN::from_array(&env, &[88u8; 32]);
+    let source_nonce = 101u64;
+    let in_sig = sign_inbound_payload(
+        &env,
+        &signing_key,
+        &client.address,
+        chain_id,
+        source_nonce,
+        &from_user,
+        period,
+        &archetype,
+        &data_hash,
+    );
+    let mut signatures = soroban_sdk::Vec::new(&env);
+    signatures.push_back(in_sig);
 
     client.bridge_wrap_in(
         &chain_id,
@@ -967,6 +981,19 @@ fn test_bridge_wrap_in_index_invariants() {
 
     for (idx, &period) in periods.iter().enumerate() {
         let nonce = (idx + 1) as u64;
+        let in_sig = sign_inbound_payload(
+            &env,
+            &signing_key,
+            &client.address,
+            chain_id,
+            nonce,
+            &recipient,
+            period,
+            &archetype,
+            &data_hash,
+        );
+        let mut signatures = soroban_sdk::Vec::new(&env);
+        signatures.push_back(in_sig);
         client.bridge_wrap_in(
             &chain_id,
             &nonce,
@@ -1018,6 +1045,19 @@ fn test_bridge_wrap_in_existing_period_updates_rather_than_duplicating() {
     let data_hash = BytesN::from_array(&env, &[66u8; 32]);
 
     // First bridge in: creates new wrap record
+    let in_sig_1 = sign_inbound_payload(
+        &env,
+        &signing_key,
+        &client.address,
+        chain_id,
+        1u64,
+        &recipient,
+        period,
+        &archetype,
+        &data_hash,
+    );
+    let mut signatures_1 = soroban_sdk::Vec::new(&env);
+    signatures_1.push_back(in_sig_1);
     client.bridge_wrap_in(
         &chain_id,
         &1u64,
@@ -1036,6 +1076,19 @@ fn test_bridge_wrap_in_existing_period_updates_rather_than_duplicating() {
     assert_eq!(wrap_bridged.fsm.state, WrapState::Bridged);
 
     // Second bridge in (e.g. returned/re-bridged from another chain): updates existing record
+    let in_sig_2 = sign_inbound_payload(
+        &env,
+        &signing_key,
+        &client.address,
+        chain_id,
+        2u64,
+        &recipient,
+        period,
+        &archetype,
+        &data_hash,
+    );
+    let mut signatures_2 = soroban_sdk::Vec::new(&env);
+    signatures_2.push_back(in_sig_2);
     client.bridge_wrap_in(
         &chain_id,
         &2u64,

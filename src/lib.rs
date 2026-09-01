@@ -19,6 +19,8 @@
 
 #![no_std]
 
+extern crate alloc;
+
 #[cfg(any(test, feature = "testutils"))]
 extern crate std;
 
@@ -581,6 +583,11 @@ impl StellarWrapContract {
         timelock::operation_id(&e, &action)
     }
 
+    /// Admin: Set the sole bridge relayer address used to authorize bridge refunds.
+    pub fn set_bridge_relayer(e: Env, relayer: Address) {
+        bridge::set_bridge_relayer(&e, relayer);
+    }
+
     /// Admin: Set the cross-chain token bridge relayers for a given chain.
     pub fn set_bridge_relayers(
         e: Env,
@@ -813,6 +820,8 @@ impl token::TokenInterface for StellarWrapContract {
     }
 }
 
+#[cfg(test)]
+mod admin_test;
 #[cfg(test)]
 mod balance_of_test;
 #[cfg(test)]
