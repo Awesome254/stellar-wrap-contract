@@ -25,7 +25,7 @@ extern crate alloc;
 extern crate std;
 
 use soroban_sdk::{
-    contract, contractimpl, panic_with_error, Address, Bytes, BytesN, Env, String, Symbol, Vec,
+    contract, contractimpl, Address, Bytes, BytesN, Env, String, Symbol, Vec,
 };
 
 mod admin;
@@ -38,6 +38,7 @@ mod events;
 mod governance;
 mod merkle;
 mod mint;
+mod optout;
 mod oracle;
 mod queries;
 mod revoke;
@@ -508,16 +509,12 @@ impl StellarWrapContract {
     /// Clear the caller's opt-out flag, allowing future wraps to be minted for
     /// them again. Only the user themselves can call this.
     pub fn opt_in(e: Env, user: Address) {
-        user.require_auth();
-        let key = crate::storage_types::DataKey::OptOut(user);
-        e.storage().persistent().remove(&key);
+        optout::opt_in(e, user);
     }
 
     /// Returns `true` if the user has opted out of future mints.
     pub fn is_opted_out(e: Env, user: Address) -> bool {
-        e.storage()
-            .persistent()
-            .has(&crate::storage_types::DataKey::OptOut(user))
+        optout::is_opted_out(&e, &user)
     }
 
     /// Return the current contract version number.

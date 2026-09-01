@@ -222,6 +222,10 @@ pub(crate) fn bridge_wrap_in(
 ) {
     crate::admin::require_not_paused(&e);
 
+    // An opted-out recipient must never receive a bridged wrap, matching the
+    // mint path guard.
+    crate::optout::require_not_opted_out(&e, &recipient);
+
     if !is_chain_supported(&e, source_chain) {
         panic_with_error!(e, ContractError::ChainDisabled);
     }
