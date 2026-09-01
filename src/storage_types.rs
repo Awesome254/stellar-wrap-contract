@@ -352,3 +352,23 @@ pub struct StakeRecord {
     /// Ledger timestamp when `unstake` was called, or 0 if not unstaking.
     pub unstaking_at: u64,
 }
+
+/// A report on the consistency of a user's storage state.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InvariantReport {
+    pub wrap_count_match_user_periods: bool,
+    pub wrap_count_match_wrap_periods: bool,
+    pub latest_period_matches_max: bool,
+    pub all_user_periods_live: bool,
+    pub balance_matches_wrap_count: bool,
+
+    pub wrap_count: u32,
+    pub user_periods_len: u32,
+    pub wrap_periods_len: u32,
+    pub latest_period: Option<u64>,
+    pub max_user_period: Option<u64>,
+    pub live_wraps_found: u32,
+    pub balance: u32,
+}
+

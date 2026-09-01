@@ -54,9 +54,9 @@ pub use errors::ContractError;
 pub use mint::{validate_period, CURRENT_PAYLOAD_VERSION, MAX_PERIOD_YEAR, MIN_PERIOD_YEAR};
 pub use oracle::DataHashOracle;
 pub use storage_types::{
-    AdminProposal, ContractHealth, DataKey, InboundBridgeRecord, OutboundBridgeRequest,
-    ProposalStatus, StakeConfig, StakeRecord, TimelockAction, TimelockOperation, TransferFeeConfig,
-    WrapLifecycleFSM, WrapRecord, WrapState,
+    AdminProposal, BatchWrapItem, ContractHealth, DataKey, InboundBridgeRecord, InvariantReport,
+    OutboundBridgeRequest, ProposalStatus, StakeConfig, StakeRecord, TimelockAction,
+    TimelockOperation, TransferFeeConfig, WrapLifecycleFSM, WrapRecord, WrapState,
 };
 pub use token::TokenInterface;
 
@@ -304,6 +304,12 @@ impl StellarWrapContract {
         limit: u32,
     ) -> soroban_sdk::Vec<WrapRecord> {
         queries::get_wraps(e, user, start, limit)
+    }
+
+    /// Read-only check to verify the internal consistency of a user's wrap state.
+    /// Returns an `InvariantReport` containing boolean flags for each invariant and observed values.
+    pub fn check_user_invariants(e: Env, user: Address) -> InvariantReport {
+        queries::check_user_invariants(e, user)
     }
 
     /// Returns every wrap record owned by `user` in a single call.
@@ -923,6 +929,8 @@ mod queries_test;
 mod security_test;
 #[cfg(test)]
 mod stake_test;
+#[cfg(test)]
+mod invariants_test;
 #[cfg(test)]
 mod test;
 #[cfg(test)]
