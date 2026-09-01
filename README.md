@@ -122,6 +122,7 @@ worked examples, and links to the detailed docs.
 | `renew_all_ttls(user)` | admin |
 | `extend_ttl(user, period)` | anyone |
 | `set_transfer_fee(token, recipient, amount)` | admin |
+| `clear_transfer_fee()` | admin |
 | `get_transfer_fee()` | — |
 | `set_expiration_duration(duration)` | admin |
 | `expiration_duration()` | — |
@@ -242,12 +243,13 @@ been initialized or if no wrap exists for the given user and period.
 
 | Entrypoint | Auth |
 | --- | --- |
-| `set_bridge_relayer(relayer)` | admin |
-| `get_bridge_relayer()` | — |
+| `set_bridge_relayers(chain_id, relayers, threshold)` | admin |
+| `get_bridge_relayers(chain_id)` | — |
 | `set_chain_status(chain_id, enabled)` | admin |
 | `is_chain_supported(chain_id)` | — |
 | `bridge_wrap_out(user, destination_chain, recipient_address, period)` | `user` |
-| `bridge_wrap_in(source_chain, source_nonce, recipient, period, archetype, data_hash)` | relayer |
+| `bridge_wrap_refund(outbound_nonce)` | relayer |
+| `bridge_wrap_in(source_chain, source_nonce, recipient, period, archetype, data_hash, signatures)` | relayer |
 | `get_outbound_bridge_request(nonce)` | — |
 | `get_inbound_bridge_record(source_chain, source_nonce)` | — |
 | `is_inbound_nonce_processed(source_chain, source_nonce)` | — |

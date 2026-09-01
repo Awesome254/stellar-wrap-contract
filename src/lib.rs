@@ -829,4 +829,6 @@ mod queries_test;
 #[cfg(test)]
 mod timelock_test;
 #[cfg(test)]
+mod timelock_cancel_test;
+#[cfg(test)]
 mod revoke_test;

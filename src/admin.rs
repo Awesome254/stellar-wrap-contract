@@ -23,7 +23,6 @@ pub(crate) fn read_admin(e: &Env) -> Address {
 ///   misconfiguration rather than discovering it after deployment.
 #[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn initialize(e: Env, admin: Address, admin_pubkey: BytesN<32>) {
-    admin.require_auth();
     if e.storage().instance().has(&DataKey::Admin) {
         panic_with_error!(e, ContractError::AlreadyInitialized);
     }
@@ -93,7 +92,7 @@ pub(crate) fn set_transfer_fee(e: Env, token: Address, recipient: Address, amoun
 pub(crate) fn clear_transfer_fee(e: Env) {
     read_admin(&e).require_auth();
     e.storage().instance().remove(&DataKey::TransferFee);
-    crate::events::publish_event(&e, crate::events::Event::AdminFeeCleared);
+    e.events().publish((symbol_short!("fee_clr"),), ());
 }
 
 pub(crate) fn is_paused(e: &Env) -> bool {

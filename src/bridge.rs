@@ -140,6 +140,7 @@ pub(crate) fn bridge_wrap_out(
 
 /// Restore a bridged wrap when the destination chain rejects the transfer.
 /// Only the configured bridge relayer may call this operation.
+#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn bridge_wrap_refund(e: Env, outbound_nonce: u64) {
     crate::admin::require_not_paused(&e);
 
@@ -367,7 +368,7 @@ pub(crate) fn bridge_wrap_in(
         }
     } else {
         let mut existing_record: WrapRecord = e.storage().persistent().get(&wrap_key).unwrap();
-        if !existing_record.fsm.transition_to(WrapState::Active, now) {
+        if !existing_record.fsm.restore_from_bridge(now) {
             panic_with_error!(e, ContractError::InvalidStateTransition);
         }
         e.storage().persistent().set(&wrap_key, &existing_record);

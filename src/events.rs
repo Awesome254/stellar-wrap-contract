@@ -1,16 +1,11 @@
 //! Strongly typed contract events.
 //!
-//! Enforces a consistent topic convention for all events:
-//! `(version, domain, action, ..keys)`
-//!
-//! - `version`: `v1` (Symbol)
-//! - `domain`: e.g. `admin`, `bridge`, `wrap`, `gov`, `whitelist`, `stake`, `timelock`, `transfer` (Symbol, <= 9 chars)
-//! - `action`: e.g. `init`, `updated`, `pause`, `fee` (Symbol, <= 9 chars)
-//! - `keys`: optional extra keys if it fits in 4 topic limit. But here we just use `(version, domain, action)` or similar, and place data in the payload.
-//!
-//! Replace inline `e.events().publish()` calls with typed enum values, reducing the risk of typos and improving discoverability.
+//! Defines typed event symbols and data payloads for mint operations,
+//! replacing raw `symbol_short!()` strings with a Rust enum. Each
+//! variant converts to its corresponding `Symbol` and back, making
+//! event names strongly typed throughout the codebase.
 
-use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env, Symbol};
+use soroban_sdk::{contracttype, Address, Env, Symbol};
 
 use crate::storage_types::{StakeConfig, WrapState};
 /// All events emitted by the contract.
@@ -210,4 +205,17 @@ pub fn publish_event(e: &Env, event: Event) {
             .events()
             .publish((v1, symbol_short!("transfer"), symbol_short!("fee")), event),
     }
+}
+
+/// Strongly typed event data payloads for mint operations.
+///
+/// Used as the data argument in `e.events().publish()` to provide
+/// type-safe event emission instead of raw values.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MintEventData {
+    /// A wrap was successfully minted.
+    Mint(Address, u64, Symbol),
+    /// A wrap's lifecycle state was transitioned.
+    Transition(Address, u64, WrapState),
 }

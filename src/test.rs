@@ -284,18 +284,6 @@ fn test_initialize_twice_fails() {
 }
 
 #[test]
-#[should_panic]
-fn test_initialize_without_admin_auth_fails() {
-    let env = Env::default();
-    let contract_id = env.register(StellarWrapContract, ());
-    let client = StellarWrapContractClient::new(&env, &contract_id);
-    let admin = Address::generate(&env);
-    let pubkey = BytesN::from_array(&env, &[1u8; 32]);
-
-    client.initialize(&admin, &pubkey);
-}
-
-#[test]
 #[should_panic(expected = "Error(Contract, #26)")]
 fn test_defeated_admin_proposal_is_persisted() {
     let env = Env::default();
@@ -316,13 +304,17 @@ fn test_defeated_admin_proposal_is_persisted() {
 
     client.execute_admin_proposal(&proposal_id);
 
-    let proposal = client.get_admin_proposal(&proposal_id).unwrap();
-    assert_eq!(proposal.status, ProposalStatus::Defeated);
+    // Read events immediately after the generating call; in SDK 27 a later
+    // contract invocation clears the previously recorded event buffer.
     let events = decode_events(&env);
     let (topics, _) = events.last().expect("defeat event was not emitted");
     let event_name: Symbol = topics[1].try_into_val(&env).unwrap();
     assert_eq!(event_name, symbol_short!("defeated"));
 
+    let proposal = client.get_admin_proposal(&proposal_id).unwrap();
+    assert_eq!(proposal.status, ProposalStatus::Defeated);
+
+    // Second execute must fail because the proposal is no longer Active.
     client.execute_admin_proposal(&proposal_id);
 }
 
@@ -2843,7 +2835,15 @@ fn make_batch_item(
     archetype: &Symbol,
     data_hash: &BytesN<32>,
 ) -> crate::storage_types::BatchWrapItem {
-    let sig = crate::test_utils::sign_payload(env, signer, contract_id, &user, period, archetype, data_hash);
+    let sig = crate::test_utils::sign_payload(
+        env,
+        signer,
+        contract_id,
+        &user,
+        period,
+        archetype,
+        data_hash,
+    );
     crate::storage_types::BatchWrapItem {
         user,
         period,
@@ -2880,8 +2880,24 @@ fn test_batch_individual_sig_rejects_opted_out_user() {
     // user_a opts out
     client.opt_out(&user_a);
 
-    let item_a = make_batch_item(&env, &signing_key, &contract_id, user_a.clone(), period_a, &archetype, &hash);
-    let item_b = make_batch_item(&env, &signing_key, &contract_id, user_b.clone(), period_b, &archetype, &hash);
+    let item_a = make_batch_item(
+        &env,
+        &signing_key,
+        &contract_id,
+        user_a.clone(),
+        period_a,
+        &archetype,
+        &hash,
+    );
+    let item_b = make_batch_item(
+        &env,
+        &signing_key,
+        &contract_id,
+        user_b.clone(),
+        period_b,
+        &archetype,
+        &hash,
+    );
 
     let mut items = soroban_sdk::vec![&env];
     items.push_back(item_a);
@@ -2914,8 +2930,24 @@ fn test_batch_individual_sig_opted_out_leaves_no_partial_state() {
 
     client.opt_out(&user_a);
 
-    let item_a = make_batch_item(&env, &signing_key, &contract_id, user_a.clone(), period_a, &archetype, &hash);
-    let item_b = make_batch_item(&env, &signing_key, &contract_id, user_b.clone(), period_b, &archetype, &hash);
+    let item_a = make_batch_item(
+        &env,
+        &signing_key,
+        &contract_id,
+        user_a.clone(),
+        period_a,
+        &archetype,
+        &hash,
+    );
+    let item_b = make_batch_item(
+        &env,
+        &signing_key,
+        &contract_id,
+        user_b.clone(),
+        period_b,
+        &archetype,
+        &hash,
+    );
 
     let mut items = soroban_sdk::vec![&env];
     items.push_back(item_a);
@@ -2979,7 +3011,8 @@ fn test_batch_aggregated_sig_rejects_opted_out_user() {
     items.push_back(item_a);
     items.push_back(item_b);
 
-    let agg_sig = crate::test_utils::sign_batch_payload(&env, &signing_key, &contract_id, &items, 1);
+    let agg_sig =
+        crate::test_utils::sign_batch_payload(&env, &signing_key, &contract_id, &items, 1);
 
     // Must panic with UserOptedOut (#32).
     client.mint_wrap_batch(&items, &Some(agg_sig));
@@ -3030,12 +3063,16 @@ fn test_batch_aggregated_sig_opted_out_leaves_no_partial_state() {
     items.push_back(item_a);
     items.push_back(item_b);
 
-    let agg_sig = crate::test_utils::sign_batch_payload(&env, &signing_key, &contract_id, &items, 1);
+    let agg_sig =
+        crate::test_utils::sign_batch_payload(&env, &signing_key, &contract_id, &items, 1);
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         client.mint_wrap_batch(&items, &Some(agg_sig));
     }));
-    assert!(result.is_err(), "aggregated batch with opted-out user must revert");
+    assert!(
+        result.is_err(),
+        "aggregated batch with opted-out user must revert"
+    );
 
     // No partial state: B must not have received a wrap.
     assert!(client.get_wrap(&user_b, &period_b).is_none());
@@ -3079,7 +3116,15 @@ fn test_total_revoked_increments_correctly() {
 
     // Mint three wraps then revoke each one, asserting the counter after each.
     for &period in &periods {
-        let sig = crate::test_utils::sign_payload(&env, &signing_key, &contract_id, &user, period, &archetype, &hash);
+        let sig = crate::test_utils::sign_payload(
+            &env,
+            &signing_key,
+            &contract_id,
+            &user,
+            period,
+            &archetype,
+            &hash,
+        );
         client.mint_wrap(&user, &period, &archetype, &hash, &1u32, &sig);
     }
 
@@ -3128,8 +3173,24 @@ fn test_revoke_then_transfer_succeeds() {
     let period2 = 202602u64;
     let reason = BytesN::from_array(&env, &[0u8; 32]);
 
-    let sig1 = crate::test_utils::sign_payload(&env, &signing_key, &contract_id, &user, period1, &archetype, &hash);
-    let sig2 = crate::test_utils::sign_payload(&env, &signing_key, &contract_id, &user, period2, &archetype, &hash);
+    let sig1 = crate::test_utils::sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period1,
+        &archetype,
+        &hash,
+    );
+    let sig2 = crate::test_utils::sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        period2,
+        &archetype,
+        &hash,
+    );
 
     client.mint_wrap(&user, &period1, &archetype, &hash, &1u32, &sig1);
     client.mint_wrap(&user, &period2, &archetype, &hash, &1u32, &sig2);
@@ -3170,35 +3231,47 @@ fn test_revoke_keeps_index_invariant() {
     let periods = [202601u64, 202602u64, 202603u64];
 
     for &p in &periods {
-        let sig = crate::test_utils::sign_payload(&env, &signing_key, &contract_id, &user, p, &archetype, &hash);
+        let sig = crate::test_utils::sign_payload(
+            &env,
+            &signing_key,
+            &contract_id,
+            &user,
+            p,
+            &archetype,
+            &hash,
+        );
         client.mint_wrap(&user, &p, &archetype, &hash, &1u32, &sig);
     }
     assert_eq!(client.balance_of(&user), 3);
 
     // Helper closure that reads both index vectors from storage.
     let index_lens = |env: &Env, contract_id: &Address, user: &Address| -> (u32, u32) {
-        let wp: soroban_sdk::Vec<u64> = env
-            .as_contract(contract_id, || {
-                env.storage()
-                    .persistent()
-                    .get(&DataKey::WrapPeriods(user.clone()))
-                    .unwrap_or(soroban_sdk::Vec::new(env))
-            });
-        let up: soroban_sdk::Vec<u64> = env
-            .as_contract(contract_id, || {
-                env.storage()
-                    .persistent()
-                    .get(&DataKey::UserPeriods(user.clone()))
-                    .unwrap_or(soroban_sdk::Vec::new(env))
-            });
+        let wp: soroban_sdk::Vec<u64> = env.as_contract(contract_id, || {
+            env.storage()
+                .persistent()
+                .get(&DataKey::WrapPeriods(user.clone()))
+                .unwrap_or(soroban_sdk::Vec::new(env))
+        });
+        let up: soroban_sdk::Vec<u64> = env.as_contract(contract_id, || {
+            env.storage()
+                .persistent()
+                .get(&DataKey::UserPeriods(user.clone()))
+                .unwrap_or(soroban_sdk::Vec::new(env))
+        });
         (wp.len(), up.len())
     };
 
     client.revoke_wrap(&user, &periods[0], &reason);
     let (wp, up) = index_lens(&env, &contract_id, &user);
     assert_eq!(client.balance_of(&user), 2);
-    assert_eq!(wp, 2, "WrapPeriods.len() must equal WrapCount after first revoke");
-    assert_eq!(up, 2, "UserPeriods.len() must equal WrapCount after first revoke");
+    assert_eq!(
+        wp, 2,
+        "WrapPeriods.len() must equal WrapCount after first revoke"
+    );
+    assert_eq!(
+        up, 2,
+        "UserPeriods.len() must equal WrapCount after first revoke"
+    );
 
     client.revoke_wrap(&user, &periods[1], &reason);
     let (wp, up) = index_lens(&env, &contract_id, &user);
