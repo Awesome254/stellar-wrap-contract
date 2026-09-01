@@ -29,8 +29,8 @@ fn test_stake_basic_flow() {
     let user = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // Initially no stake
     assert!(client.get_stake(&user).is_none());
@@ -56,8 +56,8 @@ fn test_stake_multiple_times_accumulates() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.stake(&user, &100);
     client.stake(&user, &200);
@@ -79,8 +79,8 @@ fn test_stake_below_minimum_fails() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // Default min_stake is 100, try staking 50
     client.stake(&user, &50);
@@ -96,8 +96,8 @@ fn test_unstake_and_withdraw_flow() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.stake(&user, &1000);
 
@@ -132,8 +132,8 @@ fn test_withdraw_before_cooldown_fails() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.stake(&user, &1000);
     client.unstake(&user);
@@ -153,8 +153,8 @@ fn test_unstake_nonexistent_fails() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.unstake(&user);
 }
@@ -170,8 +170,8 @@ fn test_double_unstake_fails() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.stake(&user, &500);
     client.unstake(&user);
@@ -188,8 +188,8 @@ fn test_stake_priority_computation() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // Default config: min_stake=100, multiplier=1000bps (10%), max=5000bps (50%)
     // Stake 100 -> 1x min_stake -> priority = 1 * 1000 = 1000 bps (10%)
@@ -247,8 +247,8 @@ fn test_admin_set_stake_config() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     let new_config = StakeConfig {
         min_stake: 200,
@@ -275,8 +275,8 @@ fn test_invalid_stake_config_zero_min_stake_fails() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     let bad_config = StakeConfig {
         min_stake: 0,
@@ -297,8 +297,8 @@ fn test_invalid_stake_config_max_bps_exceeds_10000_fails() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     let bad_config = StakeConfig {
         min_stake: 100,
@@ -321,8 +321,8 @@ fn test_total_staked_multi_user() {
     let user_b = Address::generate(&env);
     let user_c = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.stake(&user_a, &100);
     client.stake(&user_b, &200);
@@ -350,8 +350,8 @@ fn test_discounted_fee_with_stake() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // Set up a fee model so there's a non-zero fee
     let fee_params = storage_types::FeeParams {
@@ -383,8 +383,8 @@ fn test_discounted_fee_zero_when_raw_fee_zero() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // Default fee params have base_fee=0 and per_kib_fee=0 -> fee = 0
     client.stake(&user, &500);
@@ -403,8 +403,8 @@ fn test_stake_events_emitted() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.stake(&user, &500);
 
@@ -438,8 +438,8 @@ fn test_cannot_stake_during_unstaking() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.stake(&user, &200);
     client.unstake(&user);
@@ -461,8 +461,8 @@ fn test_re_stake_after_withdraw() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // First stake
     client.stake(&user, &500);
@@ -494,8 +494,8 @@ fn test_withdraw_without_unstake_fails() {
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     client.stake(&user, &500);
     // Call withdraw without calling unstake first

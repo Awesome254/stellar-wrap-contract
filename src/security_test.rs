@@ -58,8 +58,8 @@ fn test_replay_attack_same_period_fails() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let data_hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("architect");
@@ -116,8 +116,8 @@ fn test_replay_attack_different_hash_same_period_fails() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let data_hash_1 = BytesN::from_array(&env, &[42u8; 32]);
     let data_hash_2 = BytesN::from_array(&env, &[99u8; 32]);
@@ -181,8 +181,8 @@ fn test_multiple_periods_for_same_user_success() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let data_hash_1 = BytesN::from_array(&env, &[42u8; 32]);
     let data_hash_2 = BytesN::from_array(&env, &[99u8; 32]);
@@ -274,8 +274,8 @@ fn test_signature_cannot_be_stolen_by_another_user() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     // Admin creates a signature for User A
     let data_hash_for_a = BytesN::from_array(&env, &[42u8; 32]);
@@ -488,8 +488,8 @@ fn test_gas_analysis_mint_operation() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let data_hash = BytesN::from_array(&env, &[42u8; 32]);
     let archetype = symbol_short!("architect");
@@ -564,8 +564,8 @@ fn test_gas_analysis_multiple_mints() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     env.cost_estimate().budget().reset_default();
 
@@ -634,8 +634,8 @@ fn test_timestamp_is_from_ledger_not_user() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     // Set specific ledger timestamp
     env.ledger().with_mut(|li| {
@@ -720,8 +720,8 @@ fn test_edge_case_long_symbols() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let data_hash = BytesN::from_array(&env, &[42u8; 32]);
 
@@ -838,8 +838,8 @@ fn test_two_step_admin_transfer_success() {
     let new_admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[1u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // Step 1: Current admin proposes new_admin
     client.propose_admin(&new_admin);
@@ -870,8 +870,8 @@ fn test_admin_cancel_proposed_admin() {
     let new_admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[2u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // Admin proposes
     client.propose_admin(&new_admin);
@@ -941,8 +941,8 @@ fn test_accept_admin_no_proposal_fails() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[4u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // No proposal exists - should panic with NoAdminTransferProposal
     client.accept_admin();
@@ -962,8 +962,8 @@ fn test_propose_admin_when_proposal_exists_fails() {
     let new_admin_2 = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[5u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // First proposal
     client.propose_admin(&new_admin_1);
@@ -985,8 +985,8 @@ fn test_cancel_no_proposal_fails() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[6u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // No proposal exists - should panic with NoAdminTransferProposal
     client.cancel_proposed_admin();
@@ -1084,8 +1084,8 @@ fn test_update_admin_clears_pending_proposal() {
     let direct_new_admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[9u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // === SETUP: Establish initial state with a pending proposal ===
     client.propose_admin(&proposed_admin);
@@ -1165,8 +1165,8 @@ fn test_propose_cancel_repropose() {
     let second_proposal = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[11u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
 
     // First proposal
     client.propose_admin(&first_proposal);
@@ -1200,8 +1200,8 @@ fn test_new_admin_can_propose_further_transfers() {
     let admin_3 = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[12u8; 32]);
 
-    client.initialize(&admin_1, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin_1, &pubkey);
 
     // Admin1 -> Admin2 via two-step
     client.propose_admin(&admin_2);
@@ -1237,8 +1237,8 @@ fn test_tampered_data_hash_invalidates_admin_signature() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("architect");
     let period = 202512u64; // December 2025

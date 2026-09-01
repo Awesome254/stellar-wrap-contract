@@ -46,6 +46,7 @@ pub(crate) fn sign_payload_versioned(
         data_hash,
         payload_version,
     );
+    let len = payload.len() as usize;
 
     let len = payload.len() as usize;
     let mut out = vec![0u8; len];
@@ -67,7 +68,7 @@ pub(crate) fn sign_batch_payload(
 ) -> BytesN<64> {
     let payload = construct_batch_mint_payload(env, contract, items, payload_version);
     let len = payload.len() as usize;
-    let mut out = vec![0u8; len];
+    let mut out = std::vec![0u8; len];
     payload.copy_into_slice(&mut out);
     let signature = signer.sign(&out);
     BytesN::from_array(env, &signature.to_bytes())

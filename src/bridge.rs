@@ -35,6 +35,24 @@ pub(crate) fn set_bridge_relayers(
         .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
 }
 
+/// Set the single bridge relayer address used to authorize refunds.
+/// Requires admin authorization.
+pub(crate) fn set_bridge_relayer(e: &Env, relayer: Address) {
+    let admin = crate::admin::read_admin(e);
+    admin.require_auth();
+    e.storage()
+        .instance()
+        .set(&DataKey::BridgeRelayer, &relayer);
+    e.storage()
+        .instance()
+        .extend_ttl(TTL_ONE_YEAR, TTL_ONE_YEAR);
+}
+
+/// Returns the configured bridge relayer address, or None if not set.
+pub(crate) fn get_bridge_relayer(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::BridgeRelayer)
+}
+
 /// Returns the configured bridge relayer set for a given chain, or None if not set.
 pub(crate) fn get_bridge_relayers(e: &Env, chain_id: u32) -> Option<BridgeRelayerSet> {
     e.storage()

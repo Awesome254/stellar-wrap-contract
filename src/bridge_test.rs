@@ -566,6 +566,8 @@ fn test_bridge_wrap_in_rejects_terminal_states() {
     ] {
         let recipient = Address::generate(&env);
         let period = 202607u64 + source_nonce;
+        let archetype = symbol_short!("bridge");
+        let data_hash = BytesN::from_array(&env, &[77u8; 32]);
         let wrap_key = DataKey::Wrap(recipient.clone(), period);
         let record = WrapRecord {
             timestamp: 100,
@@ -937,6 +939,17 @@ fn test_transfer_wrap_of_bridged_record_succeeds() {
     let mut signatures = soroban_sdk::Vec::new(&env);
     signatures.push_back(in_sig);
 
+    let signatures = sign_inbound_signature(
+        &env,
+        &signing_key,
+        &client.address,
+        chain_id,
+        101u64,
+        &from_user,
+        period,
+        &archetype,
+        &data_hash,
+    );
     client.bridge_wrap_in(
         &chain_id,
         &101u64,

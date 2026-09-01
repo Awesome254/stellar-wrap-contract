@@ -4,6 +4,7 @@ use std::string::ToString;
 
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env};
+use std::string::ToString;
 
 use crate::{test_utils::sign_payload, StellarWrapContract, StellarWrapContractClient};
 
@@ -18,8 +19,8 @@ fn test_has_wrap_agrees_with_get_wrap() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let period = 202401u64;
     let archetype = symbol_short!("arch");

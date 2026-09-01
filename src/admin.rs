@@ -154,21 +154,15 @@ pub(crate) fn migration_version(e: &Env) -> u32 {
         .unwrap_or(0)
 }
 
-/// Immediate WASM upgrade.
+/// Applies a WASM upgrade: bumps the `ContractVersion` counter, emits the
+/// `("upgrade", version)` audit event carrying the new WASM hash, and swaps
+/// the deployed code.
 ///
-/// Rejected once the timelock controller is enabled — the admin must then use
-/// `schedule(TimelockAction::Upgrade(..))` followed by `execute`.
+/// Shared by the direct [`upgrade`] entrypoint and the timelocked
+/// `TimelockAction::Upgrade` path so both keep the version counter and the
+/// event shape in sync.
 #[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
-pub(crate) fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-    crate::timelock::require_direct_call_allowed(&e);
-    let current_admin: Address = e
-        .storage()
-        .instance()
-        .get(&DataKey::Admin)
-        .unwrap_or_else(|| panic_with_error!(e, ContractError::NotInitialized));
-
-    current_admin.require_auth();
-
+pub(crate) fn apply_upgrade(e: &Env, new_wasm_hash: BytesN<32>) {
     // Bump the contract version to track upgrade history
     let next_version: u32 = e
         .storage()
@@ -188,6 +182,24 @@ pub(crate) fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
 
     // Update the contract WASM with the provided hash
     e.deployer().update_current_contract_wasm(new_wasm_hash);
+}
+
+/// Immediate WASM upgrade.
+///
+/// Rejected once the timelock controller is enabled — the admin must then use
+/// `schedule(TimelockAction::Upgrade(..))` followed by `execute`.
+#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
+pub(crate) fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
+    crate::timelock::require_direct_call_allowed(&e);
+    let current_admin: Address = e
+        .storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .unwrap_or_else(|| panic_with_error!(e, ContractError::NotInitialized));
+
+    current_admin.require_auth();
+
+    apply_upgrade(&e, new_wasm_hash);
 }
 
 /// Step one of the two-step handover. Also disabled by the timelock, since an

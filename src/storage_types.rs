@@ -302,6 +302,10 @@ pub enum DataKey {
     StakeConfig,
     /// Total amount staked across all users (instance-level).
     TotalStaked,
+    /// Single relayer address that authorizes outbound bridge refunds
+    /// (`bridge_wrap_refund`). Kept alongside the per-chain relayer sets used
+    /// for inbound bridges.
+    BridgeRelayer,
 }
 
 #[contracttype]

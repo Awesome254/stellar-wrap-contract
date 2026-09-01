@@ -588,8 +588,8 @@ fn test_set_expiration_duration_zero_fails() {
     let admin = Address::generate(&env);
     let pubkey = BytesN::from_array(&env, &[15u8; 32]);
 
-    client.initialize(&admin, &pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
     client.set_expiration_duration(&0);
 }
 

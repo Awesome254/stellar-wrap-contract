@@ -87,8 +87,8 @@ fn test_zero_hash_mint_failure_leaves_no_guard_entry() {
     let user = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let period = 202601u64; // valid YYYYMM period
@@ -159,8 +159,8 @@ fn test_successful_mint_leaves_no_guard_entry() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let period = 202601u64;
@@ -210,8 +210,8 @@ fn test_duplicate_mint_failure_leaves_no_guard_entry() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    client.initialize(&admin, &admin_pubkey);
     env.mock_all_auths();
+    client.initialize(&admin, &admin_pubkey);
 
     let archetype = symbol_short!("arch");
     let period = 202602u64;

@@ -429,8 +429,8 @@ mod tests {
         let admin = Address::generate(&env);
         let user = Address::generate(&env);
 
-        client.initialize(&admin, &admin_pubkey);
         env.mock_all_auths();
+        client.initialize(&admin, &admin_pubkey);
 
         let data_hash = BytesN::from_array(&env, &[42u8; 32]);
         let archetype = symbol_short!("arch");
