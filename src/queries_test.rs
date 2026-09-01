@@ -62,6 +62,7 @@ fn test_has_wrap_agrees_with_get_wrap() {
 
 #[test]
 fn test_version_format() {
+    extern crate std;
     let env = Env::default();
     let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
@@ -91,7 +92,7 @@ fn test_version_format() {
     );
 
     // Make sure it matches the current crate version (if needed)
-    assert_eq!(version_str.as_str(), "0.1.0"); // from Cargo.toml / queries.rs
+    assert_eq!(version_str, "0.1.0"); // from Cargo.toml / queries.rs
 }
 
 #[test]

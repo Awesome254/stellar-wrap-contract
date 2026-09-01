@@ -95,38 +95,32 @@ pub(crate) fn update_latest_period(e: &Env, user: &Address, period: u64) {
     }
 }
 
-#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
-pub(crate) fn mint_wrap(
-    e: Env,
-    user: Address,
-    period: u64,
-    archetype: Symbol,
-    data_hash: BytesN<32>,
-    payload_version: u32,
-    signature: BytesN<64>,
-) {
-    crate::admin::require_not_paused(&e);
-    user.require_auth();
-
-    // Reject minting for users who have explicitly opted out.
-    require_not_opted_out(&e, &user);
-
-    validate_period(&e, period);
-    validate_payload_version(&e, payload_version);
-
-    let admin_pubkey = get_admin_pubkey(&e);
-    if let Err(err) = verify_mint_signature(
-        &e,
-        &admin_pubkey,
-        &e.current_contract_address(),
-        &user,
-        period,
-        &archetype,
-        &data_hash,
-        payload_version,
-        &signature,
-    ) {
-        panic_with_error!(e, err);
+/// Inserts a new wrap record and maintains all associated per-user indexes and storage accounting.
+///
+/// This helper unifies index maintenance across `mint::mint_wrap`, `mint::mint_wrap_batch`,
+/// and `bridge::bridge_wrap_in`.
+///
+/// # Invariants and Index Maintenance
+/// - **Opt-out Validation**: Panics with `ContractError::UserOptedOut` if the user has opted out (`DataKey::OptOut`).
+/// - **Existence Check**: Panics with `ContractError::WrapAlreadyExists` if a record already exists at `DataKey::Wrap(user, period)`.
+/// - **Storage & TTL**: Writes `DataKey::Wrap(user, period)` and extends TTL (1 year).
+/// - **Storage Accounting**: Adds estimated storage bytes for the new wrap record (`estimate_wrap_bytes_new`).
+/// - **Wrap Counts**: Increments `DataKey::WrapCount(user)` and `DataKey::TotalWrapCount`, extending TTL. If this is the user's first wrap, accounts for `estimate_wrapcount_bytes_new`.
+/// - **Latest Period**: Updates `DataKey::LatestPeriod(user)` if `period` is newer than the recorded latest period.
+/// - **User Periods**: Appends `period` to `DataKey::UserPeriods(user)` if not already present, extending TTL and accounting for `estimate_userperiods_bytes_new`.
+/// - **Legacy Index Invariant**: If `WrapCount > 0` but `DataKey::WrapPeriods(user)` is missing, panics with `ContractError::StorageInvariantViolation` (requiring backfill).
+/// - **Wrap Periods**: Appends `period` to `DataKey::WrapPeriods(user)` if not already present, extending TTL.
+/// - **Last Updated**: Updates `DataKey::LastUpdated(user)` to the current ledger timestamp.
+///
+/// # Intentional Differences Handled by Callers
+/// - **Event Emission**: Callers emit their own caller-specific events:
+///   - `mint_wrap`: emits typed `MintEventData::Mint` with `MintEventType::Mint`.
+///   - `mint_wrap_batch`: emits typed `MintEventData::Mint` with `MintEventType::Mint`.
+///   - `bridge_wrap_in`: emits `br_in` event and persists `InboundBridgeRecord`.
+/// - **Pre-Validation**: Callers handle authorization (`require_auth`), paused checks (`require_not_paused`), signature verification, and replay protection prior to calling `insert_wrap_record`.
+pub(crate) fn insert_wrap_record(e: &Env, user: &Address, period: u64, record: &WrapRecord) {
+    if e.storage().persistent().has(&DataKey::OptOut(user.clone())) {
+        panic_with_error!(e, ContractError::UserOptedOut);
     }
 
     let wrap_key = DataKey::Wrap(user.clone(), period);
@@ -134,24 +128,13 @@ pub(crate) fn mint_wrap(
         panic_with_error!(e, ContractError::WrapAlreadyExists);
     }
 
-    let now = e.ledger().timestamp();
-    let record = WrapRecord {
-        timestamp: now,
-        data_hash,
-        archetype: archetype.clone(),
-        period,
-        fsm: WrapLifecycleFSM::new(WrapState::Active, now),
-        description: None,
-        image_url: None,
-    };
-
-    e.storage().persistent().set(&wrap_key, &record);
+    e.storage().persistent().set(&wrap_key, record);
     e.storage()
         .persistent()
         .extend_ttl(&wrap_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
     // Account for estimated storage bytes for new wrap record
-    storage_accounting::add_storage_bytes(&e, storage_accounting::estimate_wrap_bytes_new());
+    storage_accounting::add_storage_bytes(e, storage_accounting::estimate_wrap_bytes_new());
 
     // Update wrap count and account for count entry if first insert
     let count_key = DataKey::WrapCount(user.clone());
@@ -172,12 +155,12 @@ pub(crate) fn mint_wrap(
 
     if current_count == 0 {
         storage_accounting::add_storage_bytes(
-            &e,
+            e,
             storage_accounting::estimate_wrapcount_bytes_new(),
         );
     }
 
-    update_latest_period(&e, &user, period);
+    update_latest_period(e, user, period);
 
     // UserPeriods: if we push a new period value, account for it
     let user_periods_key = DataKey::UserPeriods(user.clone());
@@ -185,7 +168,7 @@ pub(crate) fn mint_wrap(
         .storage()
         .persistent()
         .get(&user_periods_key)
-        .unwrap_or(soroban_sdk::Vec::new(&e));
+        .unwrap_or(soroban_sdk::Vec::new(e));
 
     if !periods.contains(period) {
         periods.push_back(period);
@@ -194,9 +177,8 @@ pub(crate) fn mint_wrap(
             .persistent()
             .extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
-        // For simplicity account for the user periods entry cost (conservative)
         storage_accounting::add_storage_bytes(
-            &e,
+            e,
             storage_accounting::estimate_userperiods_bytes_new(),
         );
     }
@@ -212,7 +194,7 @@ pub(crate) fn mint_wrap(
         .storage()
         .persistent()
         .get(&wrap_periods_key)
-        .unwrap_or(soroban_sdk::Vec::new(&e));
+        .unwrap_or(soroban_sdk::Vec::new(e));
     if !wrap_periods.contains(period) {
         wrap_periods.push_back(period);
         e.storage()
@@ -223,7 +205,52 @@ pub(crate) fn mint_wrap(
             .extend_ttl(&wrap_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
     }
 
-    update_last_updated(&e, &user);
+    update_last_updated(e, user);
+}
+
+#[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
+pub(crate) fn mint_wrap(
+    e: Env,
+    user: Address,
+    period: u64,
+    archetype: Symbol,
+    data_hash: BytesN<32>,
+    payload_version: u32,
+    signature: BytesN<64>,
+) {
+    crate::admin::require_not_paused(&e);
+    user.require_auth();
+
+    validate_period(&e, period);
+    validate_payload_version(&e, payload_version);
+
+    let admin_pubkey = get_admin_pubkey(&e);
+    if let Err(err) = verify_mint_signature(
+        &e,
+        &admin_pubkey,
+        &e.current_contract_address(),
+        &user,
+        period,
+        &archetype,
+        &data_hash,
+        payload_version,
+        &signature,
+    ) {
+        panic_with_error!(e, err);
+    }
+
+    let now = e.ledger().timestamp();
+    let record = WrapRecord {
+        timestamp: now,
+        data_hash,
+        archetype: archetype.clone(),
+        period,
+        fsm: WrapLifecycleFSM::new(WrapState::Active, now),
+        description: None,
+        image_url: None,
+    };
+
+    insert_wrap_record(&e, &user, period, &record);
 
     crate::events::publish_event(&e, crate::events::Event::Mint(user, period, archetype));
 }
@@ -261,13 +288,19 @@ pub(crate) fn mint_wrap_batch(
     let admin_pubkey = get_admin_pubkey(&e);
     let contract_id = e.current_contract_address();
 
+    let mut authed_users = soroban_sdk::Vec::<Address>::new(&e);
+    for item in items.iter() {
+        if !authed_users.contains(&item.user) {
+            item.user.require_auth();
+            authed_users.push_back(item.user.clone());
+        }
+    }
+
     if let Some(agg_sig) = aggregated_signature {
         // Validate payload version of items
         for item in items.iter() {
             validate_period(&e, item.period);
             validate_payload_version(&e, item.payload_version);
-            require_not_opted_out(&e, &item.user);
-            item.user.require_auth();
         }
         let payload_version = items.get(0).unwrap().payload_version;
         if let Err(err) = crate::signature::verify_batch_aggregated_signature(
@@ -285,8 +318,6 @@ pub(crate) fn mint_wrap_batch(
         for item in items.iter() {
             validate_period(&e, item.period);
             validate_payload_version(&e, item.payload_version);
-            require_not_opted_out(&e, &item.user);
-            item.user.require_auth();
 
             if let Err(err) = verify_mint_signature(
                 &e,
@@ -306,11 +337,6 @@ pub(crate) fn mint_wrap_batch(
 
     // Process each wrap insertion
     for item in items.iter() {
-        let wrap_key = DataKey::Wrap(item.user.clone(), item.period);
-        if e.storage().persistent().has(&wrap_key) {
-            panic_with_error!(&e, ContractError::WrapAlreadyExists);
-        }
-
         let now = e.ledger().timestamp();
         let record = WrapRecord {
             timestamp: now,
@@ -322,82 +348,15 @@ pub(crate) fn mint_wrap_batch(
             image_url: None,
         };
 
-        e.storage().persistent().set(&wrap_key, &record);
-        e.storage()
-            .persistent()
-            .extend_ttl(&wrap_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-        storage_accounting::add_storage_bytes(&e, storage_accounting::estimate_wrap_bytes_new());
-
-        let count_key = DataKey::WrapCount(item.user.clone());
-        let current_count: u32 = e.storage().persistent().get(&count_key).unwrap_or(0);
-        let next_count = current_count + 1;
-        e.storage().persistent().set(&count_key, &next_count);
-        e.storage()
-            .persistent()
-            .extend_ttl(&count_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-        let total_key = DataKey::TotalWrapCount;
-        let current_total: u32 = e.storage().persistent().get(&total_key).unwrap_or(0);
-        let next_total = current_total + 1;
-        e.storage().persistent().set(&total_key, &next_total);
-        e.storage()
-            .persistent()
-            .extend_ttl(&total_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-        if current_count == 0 {
-            storage_accounting::add_storage_bytes(
-                &e,
-                storage_accounting::estimate_wrapcount_bytes_new(),
-            );
-        }
-
-        update_latest_period(&e, &item.user, item.period);
-
-        let user_periods_key = DataKey::UserPeriods(item.user.clone());
-        let mut periods: soroban_sdk::Vec<u64> = e
-            .storage()
-            .persistent()
-            .get(&user_periods_key)
-            .unwrap_or(soroban_sdk::Vec::new(&e));
-
-        if !periods.contains(item.period) {
-            periods.push_back(item.period);
-            e.storage().persistent().set(&user_periods_key, &periods);
-            e.storage()
-                .persistent()
-                .extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-
-            storage_accounting::add_storage_bytes(
-                &e,
-                storage_accounting::estimate_userperiods_bytes_new(),
-            );
-        }
-
-        let wrap_periods_key = DataKey::WrapPeriods(item.user.clone());
-        if !e.storage().persistent().has(&wrap_periods_key) && current_count > 0 {
-            panic_with_error!(&e, ContractError::StorageInvariantViolation);
-        }
-        let mut wrap_periods: soroban_sdk::Vec<u64> = e
-            .storage()
-            .persistent()
-            .get(&wrap_periods_key)
-            .unwrap_or(soroban_sdk::Vec::new(&e));
-        if !wrap_periods.contains(item.period) {
-            wrap_periods.push_back(item.period);
-            e.storage()
-                .persistent()
-                .set(&wrap_periods_key, &wrap_periods);
-            e.storage()
-                .persistent()
-                .extend_ttl(&wrap_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
-        }
-
-        update_last_updated(&e, &item.user);
+        insert_wrap_record(&e, &item.user, item.period, &record);
 
         e.events().publish(
-            (symbol_short!("mint"), item.user, item.period),
-            item.archetype,
+            (
+                MintEventType::Mint.to_symbol(&e),
+                item.user.clone(),
+                item.period,
+            ),
+            MintEventData::Mint(item.user, item.period, item.archetype),
         );
     }
 }

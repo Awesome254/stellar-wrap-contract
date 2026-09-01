@@ -1935,6 +1935,239 @@ fn test_wrap_count_equals_wrap_periods_len_after_mint_burn_transfer() {
     assert_eq!(client.balance_of(&other), 2);
 }
 
+#[test]
+fn test_index_invariants_across_mint_batch_and_bridge_in() {
+    // Verifies that insert_wrap_record maintains WrapCount, TotalWrapCount,
+    // LatestPeriod, UserPeriods, WrapPeriods, and LastUpdated identically across
+    // single mint, batch mint, and bridge-in.
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[55u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let relayer_key = SigningKey::from_bytes(&[77u8; 32]);
+    let relayer_pubkey = BytesN::from_array(&env, &relayer_key.verifying_key().to_bytes());
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    // 1. Single mint for period 202401
+    env.ledger().with_mut(|li| li.timestamp = 1000);
+    let hash1 = BytesN::from_array(&env, &[1u8; 32]);
+    let archetype = symbol_short!("arch");
+    let sig1 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        202401,
+        &archetype,
+        &hash1,
+    );
+    client.mint_wrap(&user, &202401, &archetype, &hash1, &1u32, &sig1);
+
+    assert_eq!(client.balance_of(&user), 1);
+    assert_eq!(client.total_wrap_count(), 1);
+    assert_eq!(client.get_latest_wrap(&user).unwrap().period, 202401);
+    assert_eq!(client.get_all_wraps_for_user(&user).len(), 1);
+    assert_eq!(client.get_last_updated(&user), Some(1000));
+
+    // 2. Batch mint for period 202402 and 202403
+    env.ledger().with_mut(|li| li.timestamp = 2000);
+    let hash2 = BytesN::from_array(&env, &[2u8; 32]);
+    let hash3 = BytesN::from_array(&env, &[3u8; 32]);
+    let sig2 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        202402,
+        &archetype,
+        &hash2,
+    );
+    let sig3 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        202403,
+        &archetype,
+        &hash3,
+    );
+
+    let mut batch = soroban_sdk::Vec::new(&env);
+    batch.push_back(crate::storage_types::BatchWrapItem {
+        user: user.clone(),
+        period: 202402,
+        archetype: archetype.clone(),
+        data_hash: hash2.clone(),
+        payload_version: 1,
+        signature: sig2,
+    });
+    batch.push_back(crate::storage_types::BatchWrapItem {
+        user: user.clone(),
+        period: 202403,
+        archetype: archetype.clone(),
+        data_hash: hash3.clone(),
+        payload_version: 1,
+        signature: sig3,
+    });
+    client.mint_wrap_batch(&batch, &None);
+
+    assert_eq!(client.balance_of(&user), 3);
+    assert_eq!(client.total_wrap_count(), 3);
+    assert_eq!(client.get_latest_wrap(&user).unwrap().period, 202403);
+    assert_eq!(client.get_all_wraps_for_user(&user).len(), 3);
+    assert_eq!(client.get_last_updated(&user), Some(2000));
+
+    // 3. Bridge in for period 202404
+    env.ledger().with_mut(|li| li.timestamp = 3000);
+    let mut relayers = soroban_sdk::Vec::new(&env);
+    relayers.push_back(relayer_pubkey);
+    client.set_bridge_relayers(&1u32, &relayers, &1u32);
+    client.set_chain_status(&1u32, &true);
+
+    let hash4 = BytesN::from_array(&env, &[4u8; 32]);
+    let inbound_payload = crate::signature::construct_inbound_bridge_payload(
+        &env,
+        &contract_id,
+        1u32,
+        101u64,
+        &user,
+        202404,
+        &archetype,
+        &hash4,
+    );
+    let mut out = [0u8; 512];
+    let len = inbound_payload.len() as usize;
+    inbound_payload.copy_into_slice(&mut out[..len]);
+    let relayer_sig = relayer_key.sign(&out[..len]);
+    let mut signatures = soroban_sdk::Vec::new(&env);
+    signatures.push_back(BytesN::from_array(&env, &relayer_sig.to_bytes()));
+
+    client.bridge_wrap_in(
+        &1u32,
+        &101u64,
+        &user,
+        &202404,
+        &archetype,
+        &hash4,
+        &signatures,
+    );
+
+    assert_eq!(client.balance_of(&user), 4);
+    assert_eq!(client.total_wrap_count(), 4);
+    assert_eq!(client.get_latest_wrap(&user).unwrap().period, 202404);
+    assert_eq!(client.get_all_wraps_for_user(&user).len(), 4);
+    assert_eq!(client.get_last_updated(&user), Some(3000));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #32)")]
+fn test_mint_wrap_batch_rejects_opted_out_user() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[88u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    // User opts out
+    client.opt_out(&user);
+
+    let archetype = symbol_short!("arch");
+    let hash = BytesN::from_array(&env, &[1u8; 32]);
+    let sig = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        202401,
+        &archetype,
+        &hash,
+    );
+
+    let mut batch = soroban_sdk::Vec::new(&env);
+    batch.push_back(crate::storage_types::BatchWrapItem {
+        user: user.clone(),
+        period: 202401,
+        archetype,
+        data_hash: hash,
+        payload_version: 1,
+        signature: sig,
+    });
+
+    client.mint_wrap_batch(&batch, &None);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #51)")]
+fn test_mint_wrap_batch_legacy_index_invariant_guard() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[89u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    // Mint first wrap normally
+    let archetype = symbol_short!("arch");
+    let hash1 = BytesN::from_array(&env, &[1u8; 32]);
+    let sig1 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        202401,
+        &archetype,
+        &hash1,
+    );
+    client.mint_wrap(&user, &202401, &archetype, &hash1, &1u32, &sig1);
+
+    // Simulate legacy state by removing WrapPeriods
+    env.as_contract(&contract_id, || {
+        env.storage()
+            .persistent()
+            .remove(&DataKey::WrapPeriods(user.clone()));
+    });
+
+    // Batch mint must detect missing WrapPeriods and panic with StorageInvariantViolation (error #56)
+    let hash2 = BytesN::from_array(&env, &[2u8; 32]);
+    let sig2 = sign_payload(
+        &env,
+        &signing_key,
+        &contract_id,
+        &user,
+        202402,
+        &archetype,
+        &hash2,
+    );
+    let mut batch = soroban_sdk::Vec::new(&env);
+    batch.push_back(crate::storage_types::BatchWrapItem {
+        user: user.clone(),
+        period: 202402,
+        archetype,
+        data_hash: hash2,
+        payload_version: 1,
+        signature: sig2,
+    });
+
+    client.mint_wrap_batch(&batch, &None);
+}
+
 // ============================================================================
 // get_all_wraps_for_user tests
 // ============================================================================

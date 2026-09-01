@@ -143,7 +143,7 @@ pub(crate) fn execute_admin_proposal(e: Env, proposal_id: u64) {
 
         e.events().publish(
             (symbol_short!("gov"), symbol_short!("defeated")),
-            (proposal_id,),
+            proposal_id,
         );
     }
 

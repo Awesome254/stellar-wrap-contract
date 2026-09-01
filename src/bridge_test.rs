@@ -596,11 +596,14 @@ fn test_bridge_wrap_in_rejects_terminal_states() {
         signatures.push_back(sig);
 
         let result = catch_unwind(AssertUnwindSafe(|| {
-            client.bridge_wrap_in(
-                &source_chain,
-                &source_nonce,
+            call_bridge_wrap_in(
+                &env,
+                &client,
+                &relayer_key,
+                source_chain,
+                source_nonce,
                 &recipient,
-                &period,
+                period,
                 &symbol_short!("bridge"),
                 &BytesN::from_array(&env, &[77u8; 32]),
                 &soroban_sdk::Vec::new(&env),
@@ -813,11 +816,14 @@ fn test_mint_wrap_and_bridge_wrap_in_period_validation_parity() {
         let mut signatures = soroban_sdk::Vec::new(&env);
         signatures.push_back(sig_in);
         let bridge_result = catch_unwind(AssertUnwindSafe(|| {
-            client.bridge_wrap_in(
-                &chain_id,
-                &nonce,
+            call_bridge_wrap_in(
+                &env,
+                &client,
+                &relayer_key,
+                chain_id,
+                nonce,
                 &bridge_user,
-                &period,
+                period,
                 &archetype,
                 &data_hash,
                 &soroban_sdk::Vec::new(&env),
@@ -1063,4 +1069,60 @@ fn test_bridge_wrap_in_existing_period_updates_rather_than_duplicating() {
 
     assert_eq!(count, wrap_periods_len);
     assert_eq!(wrap_periods_len, user_periods_len);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #51)")]
+fn test_bridge_wrap_in_legacy_index_invariant_guard() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[99u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let chain_id = 1u32;
+    let relayer_key = setup_default_relayer(&env, &client, chain_id);
+    let recipient = Address::generate(&env);
+    let archetype = symbol_short!("arch");
+    let data_hash = BytesN::from_array(&env, &[1u8; 32]);
+    let period = 202607u64;
+
+    // First bridge in succeeds
+    call_bridge_wrap_in(
+        &env,
+        &client,
+        &relayer_key,
+        chain_id,
+        1u64,
+        &recipient,
+        period,
+        &archetype,
+        &data_hash,
+    );
+
+    // Simulate legacy state: user has count > 0 but WrapPeriods is missing
+    env.as_contract(&contract_id, || {
+        env.storage()
+            .persistent()
+            .remove(&DataKey::WrapPeriods(recipient.clone()));
+    });
+
+    // Subsequent bridge-in for fresh period must panic with StorageInvariantViolation (error #56)
+    let period2 = 202608u64;
+    let data_hash2 = BytesN::from_array(&env, &[2u8; 32]);
+    call_bridge_wrap_in(
+        &env,
+        &client,
+        &relayer_key,
+        chain_id,
+        2u64,
+        &recipient,
+        period2,
+        &archetype,
+        &data_hash2,
+    );
 }
