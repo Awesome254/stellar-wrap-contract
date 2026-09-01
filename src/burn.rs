@@ -1,5 +1,6 @@
 use soroban_sdk::{panic_with_error, symbol_short, Address, Env, Vec};
 
+use crate::storage_accounting;
 use crate::{ContractError, DataKey, WrapRecord, WrapState};
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
@@ -19,7 +20,8 @@ const TTL_ONE_YEAR: u32 = 17_280 * 365;
 /// * `Unauthorized` if caller is not the wrap owner
 ///
 /// # Side Effects
-/// 1. Removes the wrap record from persistent storage
+/// 1. Removes the wrap record from persistent storage (reclaiming its
+///    accounted storage bytes)
 /// 2. Decrements the user's wrap count (removing key when count reaches zero)
 /// 3. Updates WrapPeriods ownership index (removing key when empty)
 /// 4. Updates UserPeriods list (removing key when empty)
@@ -45,8 +47,10 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
         panic_with_error!(e, ContractError::InvalidStateTransition);
     }
 
-    // 3. Delete the wrap record from storage
+    // 3. Delete the wrap record from storage and reclaim its accounted bytes
+    //    (mirrors revoke_wrap — see tests/storage_fee.rs::burn_matches_revoke_delta)
     e.storage().persistent().remove(&wrap_key);
+    storage_accounting::sub_storage_bytes(&e, storage_accounting::estimate_wrap_bytes_new());
 
     // 4. Update WrapPeriods ownership index (used by transfer_wrap / read_periods).
     //    This MUST stay in sync with WrapCount or every subsequent transfer panics.
@@ -76,6 +80,14 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
         e.storage()
             .persistent()
             .remove(&DataKey::LatestPeriod(user.clone()));
+        storage_accounting::sub_storage_bytes(
+            &e,
+            storage_accounting::estimate_wrapcount_bytes_new(),
+        );
+        storage_accounting::sub_storage_bytes(
+            &e,
+            storage_accounting::estimate_latest_bytes_new(),
+        );
     } else {
         e.storage()
             .persistent()
@@ -120,6 +132,10 @@ pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
 
     if remaining_user_periods.is_empty() {
         e.storage().persistent().remove(&user_periods_key);
+        storage_accounting::sub_storage_bytes(
+            &e,
+            storage_accounting::estimate_userperiods_bytes_new(),
+        );
     } else {
         e.storage()
             .persistent()
