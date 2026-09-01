@@ -2335,7 +2335,7 @@ fn test_old_wrap_preserved_on_new_mint() {
 }
 
 #[test]
-fn test_update_admin_pubkey_emits_event() {
+fn test_revoke_latest_recomputes_latest_period() {
     let hash1 = BytesN::from_array(&env, &[10u8; 32]);
     let hash2 = BytesN::from_array(&env, &[20u8; 32]);
 
@@ -2355,8 +2355,9 @@ fn test_update_admin_pubkey_emits_event() {
     let reason_hash = BytesN::from_array(&env, &[0u8; 32]);
     client.revoke_wrap(&user, &202402, &reason_hash);
 
-    // LatestPeriod was cleared; get_latest_wrap returns None
-    assert!(client.get_latest_wrap(&user).is_none());
+    // After revoking the latest wrap, LatestPeriod should point to the next-newest period
+    let latest_after_revoke = client.get_latest_wrap(&user).unwrap();
+    assert_eq!(latest_after_revoke.period, 202401);
     assert_eq!(client.balance_of(&user), 1);
 }
 

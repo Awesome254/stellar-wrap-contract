@@ -232,6 +232,57 @@ fn test_revoke_non_latest_wrap_preserves_latest() {
 }
 
 #[test]
+fn test_revoke_latest_recomputes_next_newest_period() {
+    // Test: mint 202401/202402/202403, revoke 202403, assert LatestPeriod == 202402.
+    // This validates the fix for #660: LatestPeriod is recomputed from remaining periods
+    // instead of being unconditionally cleared.
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+
+    let signing_key = SigningKey::from_bytes(&[16u8; 32]);
+    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    client.initialize(&admin, &admin_pubkey);
+    env.mock_all_auths();
+
+    let archetype = symbol_short!("arch");
+    let hash1 = BytesN::from_array(&env, &[11u8; 32]);
+    let hash2 = BytesN::from_array(&env, &[22u8; 32]);
+    let hash3 = BytesN::from_array(&env, &[33u8; 32]);
+
+    // Mint three wraps with periods 202401, 202402, 202403
+    let sig1 = sign_payload(&env, &signing_key, &contract_id, &user, 202401, &archetype, &hash1);
+    let sig2 = sign_payload(&env, &signing_key, &contract_id, &user, 202402, &archetype, &hash2);
+    let sig3 = sign_payload(&env, &signing_key, &contract_id, &user, 202403, &archetype, &hash3);
+
+    client.mint_wrap(&user, &202401, &archetype, &hash1, &1u32, &sig1);
+    client.mint_wrap(&user, &202402, &archetype, &hash2, &1u32, &sig2);
+    client.mint_wrap(&user, &202403, &archetype, &hash3, &1u32, &sig3);
+
+    // Verify latest is 202403 after all mints
+    assert_eq!(client.balance_of(&user), 3);
+    let latest_before = client.get_latest_wrap(&user).unwrap();
+    assert_eq!(latest_before.period, 202403);
+
+    // Revoke the latest (202403)
+    let reason = BytesN::from_array(&env, &[0u8; 32]);
+    client.revoke_wrap(&user, &202403, &reason);
+
+    // After revocation, LatestPeriod should point to the next-newest remaining period (202402)
+    assert_eq!(client.balance_of(&user), 2);
+    let latest_after = client.get_latest_wrap(&user).unwrap();
+    assert_eq!(latest_after.period, 202402);
+    assert_eq!(latest_after.data_hash, hash2);
+
+    // 202401 should still be readable
+    let wrap1 = client.get_wrap(&user, &202401).unwrap();
+    assert_eq!(wrap1.period, 202401);
+}
+
+#[test]
 fn test_balance_of_and_count() {
     let env = Env::default();
     let contract_id = env.register(StellarWrapContract, ());
