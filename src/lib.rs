@@ -40,6 +40,7 @@ mod mint;
 mod oracle;
 mod queries;
 mod revoke;
+mod remove_wrap;
 pub mod signature;
 mod stake;
 mod storage_accounting;

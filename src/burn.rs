@@ -2,6 +2,7 @@ use soroban_sdk::{panic_with_error, symbol_short, Address, Env, Vec};
 
 use crate::storage_accounting;
 use crate::{ContractError, DataKey, WrapRecord, WrapState};
+use crate::remove_wrap::remove_wrap_record;
 
 const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
