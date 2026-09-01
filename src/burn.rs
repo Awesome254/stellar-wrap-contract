@@ -18,6 +18,7 @@ const TTL_ONE_YEAR: u32 = 17_280 * 365;
 /// # Errors
 /// * `WrapNotFound` if the wrap_id (user, period pair) does not exist in storage
 /// * `Unauthorized` if caller is not the wrap owner
+/// * `InvalidStateTransition` if the wrap is in the Bridged state
 ///
 /// # Side Effects
 /// 1. Removes the wrap record from persistent storage (reclaiming its
@@ -26,21 +27,21 @@ const TTL_ONE_YEAR: u32 = 17_280 * 365;
 /// 3. Updates WrapPeriods ownership index (removing key when empty)
 /// 4. Updates UserPeriods list (removing key when empty)
 /// 5. Updates LatestPeriod from remaining WrapPeriods, or removes key when empty
-/// 6. Emits a `burn` event after deletion
+/// 6. Decrements the global TotalWrapCount
+/// 7. Records the state-change timestamp via update_last_updated
+/// 8. Emits a `burn` event after deletion
 ///
 /// # Notes
 /// Once burned, the wrap_id is freed and the record cannot be recovered.
 /// The user can later mint a new wrap for the same period if desired.
 #[allow(deprecated)] // TODO(#718): migrate to #[contractevent]
 pub(crate) fn burn_wrap(e: Env, user: Address, period: u64) {
-    // 1. Require auth FIRST — verify caller is the owner
+    // Require auth FIRST — verify caller is the owner.
     user.require_auth();
 
-    // 2. Load wrap — error if not found
-    let wrap_key = DataKey::Wrap(user.clone(), period);
-    if !e.storage().persistent().has(&wrap_key) {
-        panic_with_error!(e, ContractError::WrapNotFound);
-    }
+    // Remove the wrap record and unwind all per-user bookkeeping.
+    // The helper also enforces WrapNotFound and the Bridged-state guard.
+    crate::wrap_record_helpers::remove_wrap_record(&e, &user, period);
 
     let record: WrapRecord = e.storage().persistent().get(&wrap_key).unwrap();
     if record.fsm.state == WrapState::Bridged {

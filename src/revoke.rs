@@ -1,8 +1,6 @@
-use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env, Vec};
+use soroban_sdk::{panic_with_error, symbol_short, Address, BytesN, Env};
 
 use crate::{storage_accounting, ContractError, DataKey};
-
-const TTL_ONE_YEAR: u32 = 17_280 * 365;
 
 /// Revokes an existing wrap record for the given user and period.
 ///
@@ -133,15 +131,13 @@ pub(crate) fn revoke_wrap(e: Env, user: Address, period: u64, reason_hash: Bytes
             .extend_ttl(&user_periods_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
     }
 
+    // Increment TotalRevoked with overflow protection (instance storage).
     let total_revoked_key = DataKey::TotalRevoked;
     let current_total: u64 = e.storage().instance().get(&total_revoked_key).unwrap_or(0);
     let next_total = current_total
         .checked_add(1)
         .unwrap_or_else(|| panic_with_error!(&e, ContractError::ArithmeticOverflow));
     e.storage().instance().set(&total_revoked_key, &next_total);
-
-    // Record the revocation timestamp in the user's last-updated marker.
-    crate::mint::update_last_updated(&e, &user);
 
     e.events()
         .publish((symbol_short!("revoke"), user, period), reason_hash);

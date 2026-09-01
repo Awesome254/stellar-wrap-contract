@@ -188,6 +188,9 @@ pub(crate) fn transfer_wrap(e: Env, from: Address, to: Address, period: u64) {
         .persistent()
         .extend_ttl(&destination_key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
+    // Use the shared index helper to remove period from source's WrapPeriods,
+    // then write_owner_state handles WrapCount / LatestPeriod / WrapPeriods
+    // for both source and destination atomically.
     let source_periods = remove_period(&e, &source_periods, period);
     destination_periods.push_back(period);
     write_owner_state(&e, &from, &source_periods);

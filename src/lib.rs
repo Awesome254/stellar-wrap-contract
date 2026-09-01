@@ -47,6 +47,7 @@ mod storage_types;
 mod timelock;
 mod token;
 mod transfer;
+mod wrap_record_helpers;
 
 pub use errors::ContractError;
 pub use mint::{validate_period, CURRENT_PAYLOAD_VERSION, MAX_PERIOD_YEAR, MIN_PERIOD_YEAR};
