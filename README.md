@@ -93,14 +93,11 @@ Returned by `health()`, reports:
 - `DataKey::LatestPeriod(Address)`
 - `DataKey::MigrationVersion`
 
-## API reference
+## Pause Functionality
 
-Every public entrypoint in `src/lib.rs` is listed below, grouped by module. The
-auth column states who must authorise the invocation ("—" = permissionless
-read). See the subsystem sections that follow for the authorization model,
-worked examples, and links to the detailed docs.
+The contract implements an emergency pause mechanism (`pause` and `unpause`) to halt core token logic during an incident.
 
-### Administration & lifecycle
+The following table documents which state-mutating entrypoints honor the pause (revert with `ContractError::Paused`) and which remain callable. Read-only queries always remain callable.
 
 | Entrypoint | Auth |
 | --- | --- |
@@ -127,14 +124,19 @@ worked examples, and links to the detailed docs.
 | `set_expiration_duration(duration)` | admin |
 | `expiration_duration()` | — |
 
-### Minting
+## Public interface
 
-| Entrypoint | Auth |
-| --- | --- |
-| `mint_wrap(user, period, archetype, data_hash, payload_version, signature)` | `user` + admin Ed25519 signature |
-| `mint_wrap_batch(items, aggregated_signature)` | per-item `user` + signature (see [Batch minting](#batch-minting)) |
-| `transition_wrap_state(user, period, next_state)` | `user` |
-| `expire_wrap(user, period)` | anyone |
+### Write methods
+
+- `initialize(e: Env, admin: Address, admin_pubkey: BytesN<32>)`
+- `update_admin(e: Env, new_admin: Address)`
+- `mint_wrap(e: Env, user: Address, period: u64, archetype: Symbol, data_hash: BytesN<32>, payload_version: u32, signature: BytesN<64>)`
+- `mint_wrap_batch(e: Env, items: Vec<BatchWrapItem>, aggregated_signature: Option<BytesN<64>>)`
+- `revoke_wrap(e: Env, user: Address, period: u64, reason_hash: BytesN<32>)`
+- `transfer_wrap(e: Env, from: Address, to: Address, period: u64)`
+- `expire_wrap(e: Env, user: Address, period: u64)`
+- `migrate(e: Env, version: u32)`
+- `upgrade(e: Env, new_wasm_hash: BytesN<32>)`
 
 ### Mint signature payload versioning
 

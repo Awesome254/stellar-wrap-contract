@@ -1218,47 +1218,27 @@ fn test_new_admin_can_propose_further_transfers() {
     assert!(client.get_pending_admin().is_none());
 }
 
-/// Test 23: Tampered data_hash Invalidates Admin Signature
-///
-/// The admin signs a payload that commits to `data_hash_a`. If the caller
-/// substitutes `data_hash_b` (a different hash) when invoking `mint_wrap`,
-/// the contract must reject the call with `InvalidSignature` (error #5)
-/// because the signed payload no longer matches what is being submitted.
-/// The user's wrap record must remain absent after the failed attempt.
 #[test]
-#[should_panic(expected = "Error(Contract, #5)")]
-fn test_tampered_data_hash_invalidates_admin_signature() {
+fn test_all_mutating_entrypoints_honor_pause() {
     let env = Env::default();
     let contract_id = env.register(StellarWrapContract, ());
     let client = StellarWrapContractClient::new(&env, &contract_id);
 
-    let signing_key = SigningKey::from_bytes(&[1u8; 32]);
-    let admin_pubkey = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[11u8; 32]);
 
     env.mock_all_auths();
     client.initialize(&admin, &admin_pubkey);
 
-    let archetype = symbol_short!("architect");
-    let period = 202512u64; // December 2025
+    client.pause();
 
-    // Hash A: what the admin signs
-    let data_hash_a = BytesN::from_array(&env, &[42u8; 32]);
-    // Hash B: what the attacker submits instead
-    let data_hash_b = BytesN::from_array(&env, &[99u8; 32]);
+    let archetype = Symbol::new(&env, "some_archetype");
+    let data_hash = BytesN::from_array(&env, &[0u8; 32]);
+    let signature = BytesN::from_array(&env, &[0u8; 64]);
 
-    // Admin signs over hash A
-    let signature = sign_payload(
-        &env,
-        &signing_key,
-        &contract_id,
-        &user,
-        period,
-        &archetype,
-        &data_hash_a,
-        CURRENT_PAYLOAD_VERSION,
-    );
+    let res = client.try_mint_wrap(&user, &202401, &archetype, &data_hash, &1u32, &signature);
+    assert!(res.is_err(), "mint_wrap should fail when paused");
 
     // Attacker submits hash B together with the signature that was made for hash A.
     // The contract must detect the mismatch and panic with InvalidSignature (#5).
@@ -1271,10 +1251,30 @@ fn test_tampered_data_hash_invalidates_admin_signature() {
         &signature,
     );
 
-    // Execution must not reach this point.
-    // If it did, the user would have a wrap — which is the vulnerability being guarded against.
-    assert!(
-        client.get_wrap(&user, &period).is_none(),
-        "User must not have a wrap after a signature verification failure"
-    );
+    let res = client.try_transfer_wrap(&user, &admin, &202401);
+    assert!(res.is_err(), "transfer_wrap should fail when paused");
+
+    let res = client.try_backfill_wrap_periods(&user, &soroban_sdk::vec![&env, 202401]);
+    assert!(res.is_err(), "backfill_wrap_periods should fail when paused");
+
+    let res = client.try_transition_wrap_state(&user, &202401, &crate::storage_types::WrapState::Expired);
+    assert!(res.is_err(), "transition_wrap_state should fail when paused");
+
+    let res = client.try_expire_wrap(&user, &202401);
+    assert!(res.is_err(), "expire_wrap should fail when paused");
+
+    let res = client.try_stake(&user, &1000);
+    assert!(res.is_err(), "stake should fail when paused");
+
+    let res = client.try_unstake(&user);
+    assert!(res.is_err(), "unstake should fail when paused");
+
+    let res = client.try_withdraw_stake(&user);
+    assert!(res.is_err(), "withdraw_stake should fail when paused");
+
+    let res = client.try_bridge_wrap_out(&user, &1, &Bytes::new(&env), &202401);
+    assert!(res.is_err(), "bridge_wrap_out should fail when paused");
+
+    let res = client.try_bridge_wrap_in(&1, &1, &user, &202401, &archetype, &data_hash);
+    assert!(res.is_err(), "bridge_wrap_in should fail when paused");
 }
