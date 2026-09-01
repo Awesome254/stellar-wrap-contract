@@ -267,7 +267,10 @@ pub enum DataKey {
     TimelockDelay,
     /// A scheduled privileged action, keyed by its deterministic operation id.
     TimelockOp(BytesN<32>),
-    /// Ids of every currently scheduled timelock operation (instance-level).
+    /// Ids of every currently scheduled timelock operation (persistent, capped
+    /// at `timelock::MAX_PENDING_OPERATIONS`). Stored in persistent storage so
+    /// that reading it does not inflate the instance footprint on every
+    /// unrelated contract invocation.
     TimelockOps,
     // Token Bridge storage keys:
     /// Sole authorized relayer address for bridge refunds (legacy single-relayer).

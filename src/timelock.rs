@@ -112,10 +112,19 @@ pub(crate) fn operation_id(e: &Env, action: &TimelockAction) -> BytesN<32> {
 }
 
 fn read_op_ids(e: &Env) -> Vec<BytesN<32>> {
+    let key = DataKey::TimelockOps;
     e.storage()
-        .instance()
-        .get(&DataKey::TimelockOps)
+        .persistent()
+        .get(&key)
         .unwrap_or_else(|| Vec::new(e))
+}
+
+fn write_op_ids(e: &Env, ids: &Vec<BytesN<32>>) {
+    let key = DataKey::TimelockOps;
+    e.storage().persistent().set(&key, ids);
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 }
 
 fn remove_op(e: &Env, id: &BytesN<32>) {
@@ -130,9 +139,7 @@ fn remove_op(e: &Env, id: &BytesN<32>) {
             remaining.push_back(existing);
         }
     }
-    e.storage()
-        .instance()
-        .set(&DataKey::TimelockOps, &remaining);
+    write_op_ids(e, &remaining);
 }
 
 /// Admin-only: queue `action` for execution once the delay has elapsed.
@@ -175,8 +182,11 @@ pub(crate) fn schedule(e: Env, action: TimelockAction) -> BytesN<32> {
         .extend_ttl(&key, TTL_ONE_YEAR, TTL_ONE_YEAR);
 
     let mut ids = read_op_ids(&e);
+    if ids.len() >= MAX_PENDING_OPERATIONS {
+        panic_with_error!(e, ContractError::TimelockOperationExists);
+    }
     ids.push_back(id.clone());
-    e.storage().instance().set(&DataKey::TimelockOps, &ids);
+    write_op_ids(&e, &ids);
 
     e.events().publish(
         (symbol_short!("timelock"), symbol_short!("sched")),

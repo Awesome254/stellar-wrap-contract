@@ -66,7 +66,7 @@ Every variant of the `DataKey` enum is documented below with its assigned storag
 | `WhitelistRoot` | Instance | `BytesN<32>` | Contract Instance Lifetime | 32 bytes | Merkle root for off-chain allowlist validation. |
 | `TimelockDelay` | Instance | `u64` | Contract Instance Lifetime | 8 bytes | Mandatory delay (seconds) between scheduling and execution. |
 | `TimelockOp(BytesN<32>)` | Persistent | `TimelockOperation` | 1 Year (`6,307,200` ledgers) | ~80 bytes | Scheduled timelock operation record keyed by deterministic op ID. |
-| `TimelockOps` | Instance | `Vec<BytesN<32>>` | Contract Instance Lifetime | Bounded queue | List of active timelock operation IDs queued for execution. |
+| `TimelockOps` | Persistent | `Vec<BytesN<32>>` | 1 Year (`6,307,200` ledgers) | ≤ `MAX_PENDING_OPERATIONS` × 32 bytes (≤ 2 048 bytes) | List of active timelock operation IDs queued for execution. Capped at `MAX_PENDING_OPERATIONS = 64` to bound size; stored in persistent storage to avoid inflating the instance footprint on every unrelated invocation. |
 | `BridgeRelayer` | Instance | `Address` | Contract Instance Lifetime | 32 bytes | Authorized relayer address for cross-chain wrap bridge. |
 | `BridgeChainStatus(u32)` | Instance | `bool` | Contract Instance Lifetime | 1 byte | Enabled/disabled status for cross-chain destination chain ID. |
 | `OutboundBridgeNonce` | Instance | `u64` | Contract Instance Lifetime | 8 bytes | Monotonically increasing sequence counter for outbound bridge requests. |
@@ -87,9 +87,9 @@ Every variant of the `DataKey` enum is documented below with its assigned storag
 
 The contract has been audited for compliance with the "Instance storage is for bounded configuration only" rule. The following keys require special architectural consideration:
 
-1. **`TimelockOps` (Instance)**:
-   - *Current state:* Stored as `Vec<BytesN<32>>` in instance storage.
-   - *Analysis:* Acceptable under normal operational bounds since pending admin actions are infrequent and low-volume. However, if governance proposals grow, the active ID list should be migrated to persistent storage or indexed off-chain.
+1. **`TimelockOps` (Persistent)**:
+   - *Current state:* Stored as `Vec<BytesN<32>>` in persistent storage, capped at `MAX_PENDING_OPERATIONS = 64` entries.
+   - *Analysis:* Previously stored in instance storage, which caused the instance footprint to grow with every queued admin operation — an unrelated cost paid by all contract invocations. Migrated to persistent storage with an explicit cap so that unrelated entrypoints (e.g. `mint_wrap`) are not affected by the number of pending operations.
 
 2. **`BridgeChainStatus(u32)` (Instance)**:
    - *Current state:* Stored per chain ID in instance storage.
