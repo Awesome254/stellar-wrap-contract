@@ -3,7 +3,7 @@
 extern crate std;
 
 use super::*;
-use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned};
+use crate::test_utils::{decode_events, sign_payload, sign_payload_versioned, sign_batch_payload};
 use ed25519_dalek::SigningKey;
 use soroban_sdk::{
     symbol_short,
@@ -342,6 +342,75 @@ fn test_passing_admin_proposal_is_timelocked() {
     });
     client.timelock_execute(&operation_id);
 
+    assert_eq!(client.get_admin().unwrap(), proposed_admin);
+}
+
+/// Regression test: Low participation admin proposal with minimal votes.
+///
+/// SECURITY INVARIANT:
+/// A proposal must NOT be considered successfully executed solely because
+/// votes_for > votes_against when participation is insufficient.
+///
+/// CURRENT BEHAVIOR (VULNERABLE):
+/// if proposal.votes_for > proposal.votes_against {
+///     proposal.status = ProposalStatus::Executed;
+/// }
+///
+/// With current implementation, a proposal with:
+///   votes_for = 1
+///   votes_against = 0
+/// passes and sets admin immediately (or schedules via timelock).
+///
+/// This is a security issue because:
+/// 1. No quorum check exists
+/// 2. No minimum participation requirement exists
+/// 3. A single vote can control critical governance action
+///
+/// EXPECTED FIX:
+/// Once quorum is implemented, this test should be modified to assert
+/// that such low-participation proposals are Defeated regardless of tally.
+#[test]
+fn test_low_participation_proposal_passes_with_minimal_votes() {
+    let env = Env::default();
+    let contract_id = env.register(StellarWrapContract, ());
+    let client = StellarWrapContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let proposer = Address::generate(&env);
+    let proposed_admin = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[1u8; 32]);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &pubkey);
+
+    // Create a proposal
+    let proposal_id = client.create_admin_proposal(&proposer, &proposed_admin, &100);
+    let proposal_before = client.get_admin_proposal(&proposal_id).unwrap();
+    assert_eq!(proposal_before.status, ProposalStatus::Active);
+    assert_eq!(proposal_before.votes_for, 0);
+    assert_eq!(proposal_before.votes_against, 0);
+
+    // Cast a single vote in favor
+    client.vote_admin_proposal(&proposer, &proposal_id, &true);
+
+    // Verify minimal participation: 1 for, 0 against
+    let proposal_after_vote = client.get_admin_proposal(&proposal_id).unwrap();
+    assert_eq!(proposal_after_vote.votes_for, 1);
+    assert_eq!(proposal_after_vote.votes_against, 0);
+
+    // Advance ledger time past voting period
+    env.ledger().with_mut(|ledger| {
+        ledger.timestamp += 101;
+    });
+
+    // Execute proposal
+    client.execute_admin_proposal(&proposal_id);
+
+    // VULNERABLE BEHAVIOR DEMONSTRATED:
+    // The proposal is marked Executed despite minimal participation
+    let proposal_final = client.get_admin_proposal(&proposal_id).unwrap();
+    assert_eq!(proposal_final.status, ProposalStatus::Executed);
+
+    // Admin was successfully replaced with just 1 vote
     assert_eq!(client.get_admin().unwrap(), proposed_admin);
 }
 
@@ -2604,6 +2673,8 @@ fn test_get_wrap_nonexistent_user_returns_none() {
         0,
         "balance_of must be zero for a user that has never minted"
     );
+}
+
 #[test]
 fn test_storage_md_documents_every_datakey_variant() {
     let storage_md = include_str!("../STORAGE.md");
